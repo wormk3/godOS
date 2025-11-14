@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ascensión Infinita – Prototipo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <style>
+    body {
+      margin: 0;
+      background: #050510;
+      color: #ffffff;
+      font-family: system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      height: 100vh;
+      overflow: hidden;
+    }
+    h1 {
+      margin: 10px 0 2px;
+      font-size: 18px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #ffcc55;
+    }
+    #info {
+      font-size: 11px;
+      opacity: 0.85;
+      text-align: center;
+      margin-bottom: 4px;
+      padding: 0 8px;
+    }
+    #hud {
+      font-size: 13px;
+      margin-top: 4px;
+      opacity: 0.9;
+    }
+    canvas {
+      border: 2px solid #ffcc55;
+      border-radius: 4px;
+      margin-top: 4px;
+      background: #000000;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>ASCENSIÓN INFINITA</h1>
+  <div id="info">
+    MÓVIL: Inclina el celular para moverte · Toca una vez para activar sensores (si lo pide)<br>
+    PC: Usa las flechas ← → para moverte · Rebotas en plataformas y subes sin límite
+  </div>
+  <canvas id="game" width="360" height="640"></canvas>
+  <div id="hud">Altura: 0 m · Zona: Jardín</div>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const hud = document.getElementById("hud");
+
+    const W = canvas.width;
+    const H = canvas.height;
+
+    // Mundo vertical: y crece hacia arriba (como altura)
+    let cameraY = 0;
+    let maxHeight = 0;
+    let gameOver = false;
+
+    // Jugador
+    const player = {
+      x: W / 2,
+      y: 80,         // altura inicial
+      radius: 14,
+      vx: 0,
+      vy: 0,
+    };
+
+    // Física
+    const GRAVITY = -0.5;     // gravedad hacia abajo (en mundo)
+    const JUMP_SPEED = 13.5;  // fuerza de salto al rebotar
+    const HORIZ_SPEED_MAX = 4;
+    const FRICTION_AIR = 0.02;
+
+    // Plataformas
+    const platforms = [];
+    const PLATFORM_WIDTH = 80;
+    const PLATFORM_HEIGHT = 12;
+
+    // Control por inclinación
+    let tiltControlActive = false;
+    let tiltX = 0; // -1 izquierda, +1 derecha
+
+    // Control por teclado (fallback)
+    const keys = {
+      left: false,
+      right: false,
+    };
+
+    // Generar plataformas iniciales
+    function generateInitialPlatforms() {
+      platforms.length = 0;
+
+      // Plataforma base tipo "trampolín" en el jardín
+      platforms.push({
+        x: W / 2 - PLATFORM_WIDTH / 2,
+        y: 40,
+        w: PLATFORM_WIDTH * 1.1,
+        h: PLATFORM_HEIGHT,
+        type: "start",
+      });
+
+      let y = 120;
+      let spacing = 70;
+
+      for (let i = 0; i < 25; i++) {
+        const margin = 30;
+        const x = margin + Math.random() * (W - margin * 2 - PLATFORM_WIDTH);
+        platforms.push({
+          x,
+          y,
+          w: PLATFORM_WIDTH,
+          h: PLATFORM_HEIGHT,
+          type: "normal",
+        });
+        y += spacing;
+        spacing += 1.5; // cada vez un poco más separados
+      }
+    }
+
+    function addPlatformsAboveIfNeeded() {
+      // Buscar la plataforma más alta
+      let highest = 0;
+      for (const p of platforms) {
+        if (p.y > highest) highest = p.y;
+      }
+
+      const target = cameraY + H * 2; // queremos tener plataformas por encima de la cámara
+
+      let y = highest;
+      let spacing = 75 + (maxHeight / 200); // sube un poco con la altura
+
+      while (y < target) {
+        y += spacing;
+        const margin = 30 + Math.min(maxHeight / 50, 80); // se van alejando de los bordes
+        const x = margin + Math.random() * (W - margin * 2 - PLATFORM_WIDTH);
+        platforms.push({
+          x,
+          y,
+          w: PLATFORM_WIDTH * (0.9 + Math.random() * 0.3), // ancho un poco variable
+          h: PLATFORM_HEIGHT,
+          type: "normal",
+        });
+        spacing += 1.0;
+      }
+
+      // Limpieza: borrar plataformas muy abajo
+      const minY = cameraY - H * 2;
+      for (let i = platforms.length - 1; i >= 0; i--) {
+        if (platforms[i].y < minY) {
+          platforms.splice(i, 1);
+        }
+      }
+    }
+
+    function resetGame() {
+      cameraY = 0;
+      maxHeight = 0;
+      gameOver = false;
+
+      player.x = W / 2;
+      player.y = 80;
+      player.vx = 0;
+      player.vy = JUMP_SPEED; // que empiece saltando suave
+
+      generateInitialPlatforms();
+      updateHUD();
+    }
+
+    function getZoneName(h) {
+      if (h < 300) return "Jardín";
+      if (h < 900) return "Cielo";
+      if (h < 2000) return "Estratosfera";
+      if (h < 5000) return "Espacio cercano";
+      if (h < 9000) return "Espacio profundo";
+      return "Dimensión Neon";
+    }
+
+    function updateHUD() {
+      const zone = getZoneName(maxHeight);
+      hud.textContent = "Altura: " + Math.floor(maxHeight) + " m · Zona: " + zone;
+      if (gameOver) {
+        hud.textContent += " · GAME OVER (toca o pulsa R para reiniciar)";
+      }
+    }
+
+    // Conversión mundo -> pantalla
+    function worldToScreenY(yWorld) {
+      return H - (yWorld - cameraY);
+    }
+
+    // FONDO SEGÚN ALTURA
+    function drawBackground() {
+      const h = maxHeight;
+      let grad = ctx.createLinearGradient(0, 0, 0, H);
+
+      if (h < 300) {
+        // Jardín
+        grad.addColorStop(0, "#88d0ff"); // cielo claro
+        grad.addColorStop(0.6, "#55aa55"); // verde
+        grad.addColorStop(1, "#225522");
+      } else if (h < 900) {
+        // Cielo
+        grad.addColorStop(0, "#6ab8ff");
+        grad.addColorStop(1, "#2a4a88");
+      } else if (h < 2000) {
+        // Estratosfera
+        grad.addColorStop(0, "#4060a0");
+        grad.addColorStop(1, "#0b1025");
+      } else if (h < 5000) {
+        // Espacio cercano
+        grad.addColorStop(0, "#151530");
+        grad.addColorStop(1, "#020208");
+      } else if (h < 9000) {
+        // Espacio profundo
+        grad.addColorStop(0, "#050013");
+        grad.addColorStop(1, "#000000");
+      } else {
+        // Dimensión neon
+        grad.addColorStop(0, "#1b0033");
+        grad.addColorStop(0.5, "#001133");
+        grad.addColorStop(1, "#000000");
+      }
+
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+
+      // Estrellitas a partir de cierta altura
+      if (h > 1500) {
+        const starCount = 40;
+        ctx.fillStyle = "rgba(255,255,255,0.7)";
+        for (let i = 0; i < starCount; i++) {
+          const sx = (i * 97) % W;
+          const sy = ( (i * 53) % H );
+          ctx.fillRect(sx, sy, 2, 2);
+        }
+      }
+
+      // Sol pequeño en cielo medio-bajo
+      if (h >= 300 && h < 2000) {
+        ctx.beginPath();
+        ctx.arc(W * 0.8, H * 0.2, 20, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffdd88";
+        ctx.fill();
+      }
+    }
+
+    // UPDATE
+    let lastTime = 0;
+    function update(dt) {
+      if (gameOver) return;
+      if (dt > 40) dt = 40; // clamp
+
+      const factor = dt / 16;
+
+      // Control horizontal
+      let inputX = 0;
+      if (tiltControlActive) {
+        inputX += tiltX;
+      }
+      if (keys.left) inputX -= 1;
+      if (keys.right) inputX += 1;
+
+      // Suavizar
+      player.vx += inputX * 0.6 * factor;
+      // fricción pequeña
+      player.vx *= (1 - FRICTION_AIR * factor);
+
+      // Limitar velocidad horizontal
+      if (player.vx > HORIZ_SPEED_MAX) player.vx = HORIZ_SPEED_MAX;
+      if (player.vx < -HORIZ_SPEED_MAX) player.vx = -HORIZ_SPEED_MAX;
+
+      // Aplicar gravedad / movimiento
+      player.vy += GRAVITY * factor;
+      player.x += player.vx * factor;
+      player.y += player.vy * factor;
+
+      // Wrap horizontal (salir por derecha entra por izquierda)
+      if (player.x < -player.radius) player.x = W + player.radius;
+      if (player.x > W + player.radius) player.x = -player.radius;
+
+      // Colisión con plataformas solo si cae
+      if (player.vy <= 0) {
+        for (const p of platforms) {
+          const top = p.y + p.h;
+          const px = player.x;
+          const py = player.y;
+
+          const withinX = px > p.x && px < p.x + p.w;
+          const wasAbove = (py - player.vy * factor) - player.radius >= top;
+          const nowBelowTop = py - player.radius <= top + 2;
+
+          if (withinX && wasAbove && nowBelowTop) {
+            player.y = top + player.radius;
+            player.vy = JUMP_SPEED;
+            break;
+          }
+        }
+      }
+
+      // La cámara sigue al jugador si sube
+      if (player.y > cameraY + H * 0.4) {
+        cameraY = player.y - H * 0.4;
+      }
+
+      // Altura máxima
+      if (player.y > maxHeight) {
+        maxHeight = player.y;
+        updateHUD();
+      }
+
+      // Game over si se cae muy por debajo de la cámara
+      if (player.y + player.radius < cameraY - H * 0.5) {
+        gameOver = true;
+        updateHUD();
+      }
+
+      // Generar plataformas por encima según se sube
+      addPlatformsAboveIfNeeded();
+    }
+
+    // DRAW
+    function draw() {
+      drawBackground();
+
+      // Dibujar casa/cesped solo en zona baja
+      if (maxHeight < 320) {
+        const groundY = worldToScreenY(0);
+        ctx.fillStyle = "#338833";
+        ctx.fillRect(0, groundY, W, H - groundY);
+
+        // Casa simple
+        ctx.fillStyle = "#cfa070";
+        const houseWidth = 80;
+        const houseHeight = 60;
+        const houseX = 30;
+        const houseY = worldToScreenY(40 + houseHeight);
+        ctx.fillRect(houseX, houseY - houseHeight, houseWidth, houseHeight);
+
+        // Techo
+        ctx.beginPath();
+        ctx.moveTo(houseX - 5, houseY - houseHeight);
+        ctx.lineTo(houseX + houseWidth / 2, houseY - houseHeight - 30);
+        ctx.lineTo(houseX + houseWidth + 5, houseY - houseHeight);
+        ctx.closePath();
+        ctx.fillStyle = "#aa5533";
+        ctx.fill();
+      }
+
+      // Plataformas
+      for (const p of platforms) {
+        const syTop = worldToScreenY(p.y + p.h);
+        const ph = worldToScreenY(p.y) - syTop;
+
+        if (p.type === "start") {
+          ctx.fillStyle = "#ffee66";
+          ctx.fillRect(p.x, syTop, p.w, ph);
+          ctx.strokeStyle = "#ffcc33";
+          ctx.strokeRect(p.x + 0.5, syTop + 0.5, p.w - 1, ph - 1);
+
+          // Trampolín (líneas)
+          ctx.strokeStyle = "#aa3344";
+          ctx.beginPath();
+          ctx.moveTo(p.x + 5, syTop + ph / 2);
+          ctx.lineTo(p.x + p.w - 5, syTop + ph / 2);
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = "#222a66";
+          ctx.fillRect(p.x, syTop, p.w, ph);
+          ctx.strokeStyle = "#66aaff";
+          ctx.strokeRect(p.x + 0.5, syTop + 0.5, p.w - 1, ph - 1);
+        }
+      }
+
+      // Jugador
+      const px = player.x;
+      const pyScreen = worldToScreenY(player.y);
+
+      // Halo
+      ctx.beginPath();
+      ctx.arc(px, pyScreen, player.radius + 6, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,255,255,0.08)";
+      ctx.fill();
+
+      // Cuerpo
+      ctx.beginPath();
+      ctx.arc(px, pyScreen, player.radius, 0, Math.PI * 2);
+      ctx.fillStyle = "#ff3366";
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#ff88aa";
+      ctx.stroke();
+
+      // Ojos
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(px - 4, pyScreen - 2, 2, 0, Math.PI * 2);
+      ctx.arc(px + 4, pyScreen - 2, 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Boca
+      ctx.strokeStyle = "#551122";
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.arc(px, pyScreen + 3, 4, 0, Math.PI);
+      ctx.stroke();
+
+      // Mensaje Game Over
+      if (gameOver) {
+        ctx.fillStyle = "rgba(0,0,0,0.45)";
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = "#ffcc55";
+        ctx.font = "24px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText("GAME OVER", W / 2, H / 2 - 10);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "13px system-ui";
+        ctx.fillText("Toca o pulsa R para jugar de nuevo", W / 2, H / 2 + 14);
+        ctx.textAlign = "left";
+      }
+    }
+
+    // LOOP
+    function loop(timestamp) {
+      const dt = timestamp - lastTime;
+      lastTime = timestamp;
+      update(dt);
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // INPUT: teclas
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft") keys.left = true;
+      if (e.key === "ArrowRight") keys.right = true;
+
+      if (e.key === "r" || e.key === "R") {
+        if (gameOver) {
+          resetGame();
+        }
+      }
+    });
+
+    window.addEventListener("keyup", (e) => {
+      if (e.key === "ArrowLeft") keys.left = false;
+      if (e.key === "ArrowRight") keys.right = false;
+    });
+
+    // INPUT: inclinación del dispositivo
+    function handleOrientation(event) {
+      // gamma: inclinación izquierda/derecha (-90 a 90)
+      const gamma = event.gamma || 0;
+      // Normalizamos a rango -1..1
+      let norm = gamma / 30; // más pequeño = más sensible
+      if (norm > 1) norm = 1;
+      if (norm < -1) norm = -1;
+      tiltX = norm;
+      tiltControlActive = true;
+    }
+
+    // Solicitar permiso en iOS
+    function requestMotionPermission() {
+      if (
+        typeof DeviceOrientationEvent !== "undefined" &&
+        typeof DeviceOrientationEvent.requestPermission === "function"
+      ) {
+        DeviceOrientationEvent.requestPermission()
+          .then((state) => {
+            if (state === "granted") {
+              window.addEventListener("deviceorientation", handleOrientation);
+            }
+          })
+          .catch(() => {
+            // ignore
+          });
+      } else if (typeof DeviceOrientationEvent !== "undefined") {
+        // Android u otros
+        window.addEventListener("deviceorientation", handleOrientation);
+      }
+    }
+
+    // Un toque en el canvas intenta activar el sensor si está disponible
+    canvas.addEventListener("click", () => {
+      if (gameOver) {
+        resetGame();
+      } else {
+        requestMotionPermission();
+      }
+    });
+
+    // También primer touchstart activa permiso
+    canvas.addEventListener("touchstart", () => {
+      if (gameOver) {
+        resetGame();
+      } else {
+        requestMotionPermission();
+      }
+    });
+
+    resetGame();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
