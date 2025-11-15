@@ -188,3 +188,124 @@
                 if (gameOver) return;
 
                 // Movimiento horizontal
+                if (keys['ArrowLeft'] || keys['a'] || keys['A']) velocityX = -0.3;
+                else if (keys['ArrowRight'] || keys['d'] || keys['D']) velocityX = 0.3;
+                else velocityX *= 0.9;
+
+                worm.position.x += velocityX;
+                worm.position.x = Math.max(-15, Math.min(15, worm.position.x)); // Límites laterales
+
+                // Gravedad
+                velocityY -= gravity;
+                worm.position.y += velocityY;
+
+                // Desenrollar al saltar
+                if (isUncoiled) {
+                    uncoilTime--;
+                    if (uncoilTime <= 0) {
+                        isUncoiled = false;
+                        wormCoiled.visible = true;
+                        wormUncoiled.visible = false;
+                    }
+                }
+
+                // Colisión con plataformas (simplificada)
+                platforms.forEach(p => {
+                    if (p.broken) return;
+                    const distY = worm.position.y - p.mesh.position.y;
+                    const distX = Math.abs(worm.position.x - p.mesh.position.x);
+                    const distZ = Math.abs(worm.position.z - p.mesh.position.z);
+                    if (distY < 2 && distY > 0 && distX < 4 && distZ < 4 && velocityY < 0) {
+                        velocityY = jumpPower;
+                        isUncoiled = true;
+                        uncoilTime = 20;
+                        wormCoiled.visible = false;
+                        wormUncoiled.visible = true;
+
+                        // Romper plataforma
+                        setTimeout(() => {
+                            p.mesh.material.color.set(0x555555);
+                            p.broken = true;
+                        }, 100);
+                    }
+                });
+
+                // Caída = game over
+                if (worm.position.y < -20) {
+                    endGame();
+                }
+
+                // Puntuación
+                if (worm.position.y > score) {
+                    score = Math.floor(worm.position.y);
+                    updateScore();
+                }
+
+                // Mover plataformas hacia abajo (cuando subiendo)
+                if (velocityY < 0) {
+                    platforms.forEach(p => {
+                        p.mesh.position.y -= velocityY * 0.3;
+                    });
+                }
+
+                // Generar nuevas plataformas
+                platforms = platforms.filter(p => p.mesh.position.y > worm.position.y - 30);
+                while (platforms.length < 15) {
+                    const lastY = platforms.length ? platforms[platforms.length - 1].mesh.position.y : worm.position.y;
+                    const x = (Math.random() - 0.5) * 35;
+                    const z = (Math.random() - 0.5) * 35;
+                    createPlatform(x, lastY + 6 + Math.random() * 4, z);
+                }
+            }
+
+            function updateCamera() {
+                camera.position.x = worm.position.x * 0.3;
+                camera.position.y = worm.position.y + cameraOffsetY;
+                camera.position.z = 15;
+                camera.lookAt(worm.position.x, worm.position.y + 2, 0);
+            }
+
+            function updateScore() {
+                document.getElementById('score').textContent = score;
+            }
+
+            function endGame() {
+                gameOver = true;
+                document.getElementById('finalScore').textContent = score;
+                document.getElementById('gameOver').style.display = 'block';
+            }
+
+            function restartGame() {
+                document.getElementById('gameOver').style.display = 'none';
+                gameOver = false;
+                initPlatforms();
+            }
+
+            // Responsive
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // Bucle principal
+            function animate() {
+                requestAnimationFrame(animate);
+                updateWorm();
+                updateCamera();
+                renderer.render(scene, camera);
+            }
+
+            // Iniciar
+            initPlatforms();
+            animate();
+            document.getElementById('debug').textContent = '¡Juego iniciado! Usa ← → o desliza en móvil.';
+            console.log('Juego listo sin errores.');
+
+        } catch (error) {
+            console.error('Error en el juego:', error);
+            document.getElementById('debug').textContent = 'Error: ' + error.message + '. Revisa la consola (F12).';
+        }
+    </script>
+</body>
+</html>
