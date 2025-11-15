@@ -72,7 +72,7 @@
   <div id="overlay">
     <div id="overlay-content">
       ASCENSIÓN INFINITA<br />
-      <small>Toca para comenzar • Inclina el celular para moverte</small>
+      <small>Toca para comenzar • Inclina o toca lados para moverte</small>
     </div>
   </div>
 
@@ -86,14 +86,46 @@
         this.tiltX = 0;
         this.keys = new Set();
         this.motionEnabled = false;
+
+        // Fallback táctil
+        this.touchDir = 0; // -1 izquierda, 1 derecha, 0 neutro
       }
 
       init() {
+        // Teclado
         window.addEventListener("keydown", (e) => {
           this.keys.add(e.key);
         });
         window.addEventListener("keyup", (e) => {
           this.keys.delete(e.key);
+        });
+
+        // Controles táctiles en toda la ventana
+        const handleTouch = (ev) => {
+          if (!ev.touches || ev.touches.length === 0) {
+            this.touchDir = 0;
+            return;
+          }
+          const touch = ev.touches[0];
+          const mid = window.innerWidth / 2;
+          this.touchDir = touch.clientX < mid ? -1 : 1;
+        };
+
+        window.addEventListener("touchstart", (ev) => {
+          ev.preventDefault();
+          handleTouch(ev);
+        }, { passive: false });
+
+        window.addEventListener("touchmove", (ev) => {
+          ev.preventDefault();
+          handleTouch(ev);
+        }, { passive: false });
+
+        window.addEventListener("touchend", () => {
+          this.touchDir = 0;
+        });
+        window.addEventListener("touchcancel", () => {
+          this.touchDir = 0;
         });
       }
 
@@ -115,7 +147,9 @@
                 this.motionEnabled = true;
               }
             })
-            .catch(() => {});
+            .catch(() => {
+              // si falla, seguimos solo con touch/teclado
+            });
         } else if ("DeviceMotionEvent" in window) {
           window.addEventListener(
             "devicemotion",
@@ -127,8 +161,10 @@
       }
 
       handleTilt(event) {
-        // En iPhone: inclinación izquierda = valor negativo
-        this.tiltX = event.accelerationIncludingGravity.x || 0;
+        // Invertimos para que:
+        // inclinar a la izquierda => movimiento a la izquierda
+        const ax = event.accelerationIncludingGravity.x || 0;
+        this.tiltX = -ax;
       }
 
       getHorizontalInput() {
@@ -140,8 +176,11 @@
 
         // Tilt móvil
         if (this.motionEnabled) {
-          x += this.tiltX * 0.25;
+          x += this.tiltX * 0.25; // suave
         }
+
+        // Fallback táctil (si estás tocando se suma)
+        x += this.touchDir * 1.0;
 
         return clamp(x, -1.5, 1.5);
       }
@@ -363,7 +402,7 @@
         this.attachEvents();
       }
 
-      // tamaño real visible, evitamos el bug de innerHeight en iOS
+      // tamaño real visible del viewport (evita bug de innerHeight en iOS)
       updateViewportSize() {
         const docEl = document.documentElement;
         this.width = docEl.clientWidth || window.innerWidth;
@@ -378,7 +417,6 @@
 
       resize() {
         this.updateViewportSize();
-        // Reajustar base de spawn manteniendo al jugador en pantalla
         this.spawnBaseY = this.height - 80;
       }
 
