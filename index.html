@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Ascensión Infinita – Gusano v5</title>
+  <title>Ascensión Infinita – Fase 1</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <style>
     body {
@@ -74,11 +74,11 @@
       vy: 0,
     };
 
-    // FÍSICA tipo Doodle: menos sensible, más amortiguado
+    // FÍSICA SUAVE (estilo Doodle)
     const GRAVITY = -0.5;
     const JUMP_SPEED = 13.8;
-    let HORIZ_SPEED_MAX = 4.5;   // antes 5.0
-    const FRICTION_AIR = 0.025;  // un poco más fricción
+    let HORIZ_SPEED_MAX = 4.5;
+    const FRICTION_AIR = 0.025;
 
     const platforms = [];
     const BASE_PLATFORM_WIDTH = 80;
@@ -92,7 +92,53 @@
     const wormSprite = new Image();
     let wormSpriteLoaded = false;
     wormSprite.onload = () => { wormSpriteLoaded = true; };
-    wormSprite.src = "gusano.png"; // pon aquí tu sprite si quieres
+    wormSprite.src = "gusano.png"; // si no existe, usa gusano vectorial
+
+    // PARTICULAS DE REBOTE
+    const particles = [];
+
+    function spawnBounceParticles(x, yWorld) {
+      const count = 8;
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI; // semicírculo hacia arriba
+        const speed = 3 + Math.random() * 2;
+        particles.push({
+          x,
+          y: yWorld,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 400 + Math.random() * 200, // ms
+          maxLife: 400 + Math.random() * 200,
+        });
+      }
+    }
+
+    function updateParticles(dt) {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.life -= dt;
+        if (p.life <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+        // un poco de gravedad para que caigan
+        p.vy += GRAVITY * 0.15 * (dt / 16);
+        p.x += p.vx * (dt / 16);
+        p.y += p.vy * (dt / 16);
+      }
+    }
+
+    function drawParticles() {
+      for (const p of particles) {
+        const alpha = Math.max(p.life / p.maxLife, 0);
+        const sy = worldToScreenY(p.y);
+        const size = 3 + (1 - alpha) * 2;
+        ctx.fillStyle = "rgba(255, 230, 150," + (0.4 + 0.4 * alpha) + ")";
+        ctx.beginPath();
+        ctx.arc(p.x, sy, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
 
     function difficultyFactor() {
       return Math.min(maxHeight / 1500, 3);
@@ -185,6 +231,7 @@
       cameraY = 0;
       maxHeight = 0;
       gameOver = false;
+      particles.length = 0;
 
       player.x = W / 2;
       player.y = 80;
@@ -207,13 +254,16 @@
     function updateHUD() {
       const zone = getZoneName(maxHeight);
       hud.textContent = "Altura: " + Math.floor(maxHeight) + " m · Zona: " + zone;
-      if (gameOver) hud.textContent += " · GAME OVER (toca o pulsa R para reiniciar)";
+      if (gameOver) {
+        hud.textContent += " · GAME OVER (toca o pulsa R para reiniciar)";
+      }
     }
 
     function worldToScreenY(yWorld) {
       return H - (yWorld - cameraY);
     }
 
+    // FONDO + PARALLAX
     function drawBackground() {
       const h = maxHeight;
       let grad = ctx.createLinearGradient(0, 0, 0, H);
@@ -243,20 +293,43 @@
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, W, H);
 
+      // Parallax: capas simples
+      // offset depende de cameraY (mientras más alto, más se desplazan)
+      const offsetSlow = (cameraY * 0.05) % (H * 2);
+      const offsetFast = (cameraY * 0.12) % (H * 2);
+
+      // Nubes en cielo / estratosfera
+      if (h > 150 && h < 2500) {
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        for (let i = 0; i < 5; i++) {
+          const cx = (i * 90 + 40) % W;
+          const cy = ((i * 60) + offsetSlow) % (H + 80) - 40;
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, 35, 18, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Estrellas en espacio
       if (h > 1500) {
-        const starCount = 40;
         ctx.fillStyle = "rgba(255,255,255,0.7)";
-        for (let i = 0; i < starCount; i++) {
+        for (let i = 0; i < 40; i++) {
           const sx = (i * 97) % W;
-          const sy = ((i * 53) % H);
+          const sy = ((i * 53) + offsetFast) % H;
           ctx.fillRect(sx, sy, 2, 2);
         }
       }
 
+      // Sol / luna sencilla
       if (h >= 300 && h < 2000) {
         ctx.beginPath();
         ctx.arc(W * 0.8, H * 0.2, 20, 0, Math.PI * 2);
         ctx.fillStyle = "#ffdd88";
+        ctx.fill();
+      } else if (h >= 2000 && h < 5000) {
+        ctx.beginPath();
+        ctx.arc(W * 0.8, H * 0.2, 14, 0, Math.PI * 2);
+        ctx.fillStyle = "#dde6ff";
         ctx.fill();
       }
     }
@@ -275,7 +348,7 @@
       if (keys.left) inputX -= 1;
       if (keys.right) inputX += 1;
 
-      // MENOS fuerza del input → hay que inclinar más
+      // fuerza moderada: hay que inclinar bien
       player.vx += inputX * 0.6 * factor;
       player.vx *= (1 - FRICTION_AIR * factor);
 
@@ -289,6 +362,7 @@
       if (player.x < -player.radius) player.x = W + player.radius;
       if (player.x > W + player.radius) player.x = -player.radius;
 
+      // plataformas móviles
       for (const p of platforms) {
         if (p.type === "moving") {
           p.x += p.vx * factor;
@@ -296,6 +370,7 @@
         }
       }
 
+      // colisión (rebote) + partículas
       if (player.vy <= 0) {
         for (const p of platforms) {
           const top = p.y + p.h;
@@ -309,12 +384,15 @@
           if (withinX && wasAbove && nowBelowTop) {
             player.y = top + player.radius;
             player.vy = JUMP_SPEED;
+            spawnBounceParticles(px, top); // 🔥 partículas en rebote
             break;
           }
         }
       }
 
-      if (player.y > cameraY + H * 0.4) cameraY = player.y - H * 0.4;
+      if (player.y > cameraY + H * 0.4) {
+        cameraY = player.y - H * 0.4;
+      }
 
       if (player.y > maxHeight) {
         maxHeight = player.y;
@@ -327,12 +405,14 @@
       }
 
       addPlatformsAboveIfNeeded();
+      updateParticles(dt);
     }
 
-    // Gusano vectorial
+    // GUSANO VECTORIAL + expresiones
     function drawWormVector(px, pyScreen) {
       const r = player.radius;
 
+      // squash & stretch
       let stretch = 0;
       if (player.vy > 1) {
         stretch = Math.min(player.vy / 12, 1);
@@ -351,6 +431,7 @@
       const hw = bodyWidth / 2;
       const hh = bodyHeight / 2;
 
+      // cuerpo cápsula
       ctx.beginPath();
       ctx.moveTo(-hw, -hh + hw);
       ctx.arc(-hw, -hh + hw, hw, Math.PI, -Math.PI / 2);
@@ -372,17 +453,42 @@
       ctx.strokeStyle = "#ff99bb";
       ctx.stroke();
 
+      // estado emocional según vy
+      let mood = "neutral";
+      if (player.vy > 6) mood = "happy";          // sube fuerte
+      else if (player.vy < -8) mood = "scared";   // cae rápido
+
       const faceY = -hh * 0.4;
+
+      // ojos
       ctx.fillStyle = "#ffffff";
       ctx.beginPath();
-      ctx.arc(-hw * 0.3, faceY - 2, 2, 0, Math.PI * 2);
-      ctx.arc(hw * 0.3, faceY - 2, 2, 0, Math.PI * 2);
+      if (mood === "scared") {
+        // ojos más grandes
+        ctx.arc(-hw * 0.3, faceY - 2, 3, 0, Math.PI * 2);
+        ctx.arc(hw * 0.3, faceY - 2, 3, 0, Math.PI * 2);
+      } else if (mood === "happy") {
+        // ojos tipo sonriendo
+        ctx.arc(-hw * 0.3, faceY - 1, 2, 0, Math.PI * 2);
+        ctx.arc(hw * 0.3, faceY - 1, 2, 0, Math.PI * 2);
+      } else {
+        ctx.arc(-hw * 0.3, faceY - 2, 2, 0, Math.PI * 2);
+        ctx.arc(hw * 0.3, faceY - 2, 2, 0, Math.PI * 2);
+      }
       ctx.fill();
 
+      // boca
       ctx.strokeStyle = "#551122";
       ctx.lineWidth = 1.3;
       ctx.beginPath();
-      ctx.arc(0, faceY + 3, 4, 0, Math.PI);
+      if (mood === "happy") {
+        ctx.arc(0, faceY + 3, 4, 0, Math.PI, false); // sonrisita
+      } else if (mood === "scared") {
+        ctx.moveTo(-3, faceY + 5);
+        ctx.lineTo(3, faceY + 5); // boca recta nerviosa
+      } else {
+        ctx.arc(0, faceY + 3, 4, 0, Math.PI); // boca neutral
+      }
       ctx.stroke();
 
       ctx.restore();
@@ -424,6 +530,7 @@
     function draw() {
       drawBackground();
 
+      // suelo y casa al inicio
       if (maxHeight < 320) {
         const groundY = worldToScreenY(0);
         ctx.fillStyle = "#338833";
@@ -445,6 +552,7 @@
         ctx.fill();
       }
 
+      // plataformas
       for (const p of platforms) {
         const syTop = worldToScreenY(p.y + p.h);
         const ph = worldToScreenY(p.y) - syTop;
@@ -477,9 +585,13 @@
         }
       }
 
+      // partículas encima de plataformas
+      drawParticles();
+
       const px = player.x;
       const pyScreen = worldToScreenY(player.y);
 
+      // halo suave
       ctx.beginPath();
       ctx.arc(px, pyScreen, player.radius + 10, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(255,255,255,0.05)";
@@ -522,8 +634,8 @@
 
     function handleOrientation(event) {
       const gamma = event.gamma || 0;
-      // SENSIBILIDAD MUY BAJA tipo Doodle Jump
-      let norm = gamma / 30; // necesitas inclinar más para mover
+      // sensibilidad baja, estilo Doodle
+      let norm = gamma / 30;
       if (norm > 1) norm = 1;
       if (norm < -1) norm = -1;
       tiltX = norm;
