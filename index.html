@@ -75,15 +75,15 @@
         };
         const ZONES = Object.keys(COLORS);
 
-        // Jugador (gusano)
+        // Jugador (forma de "8")
         const PLAYER_SIZE = 30;
         let player = {
             x: 0,
             y: 0,
             vx: 0,
             vy: 0,
-            width: PLAYER_SIZE * 1.6,
-            height: PLAYER_SIZE * 2.0,
+            width: PLAYER_SIZE * 1.4,
+            height: PLAYER_SIZE * 2.4,
             isJumping: false,
             maxHeight: 0,
             score: 0
@@ -184,8 +184,8 @@
         }
 
         function handleTilt(event) {
-            // x negativo y positivo dependen de orientación; puedes invertir si se siente al revés
-            tiltX = -event.accelerationIncludingGravity.x;
+            // AHORA: inclinar a la izquierda → tiltX negativo → se mueve a la izquierda
+            tiltX = event.accelerationIncludingGravity.x;
         }
 
         function handleKeyDown(event) {
@@ -218,7 +218,7 @@
                 );
             }
 
-            // Arrastre ligero si no hay input
+            // Arrastre ligero si casi no se mueve
             if (Math.abs(player.vx) < 1) {
                 player.vx *= DRAG;
             }
@@ -264,20 +264,20 @@
             if (gameOver || !started) return;
 
             if (player.vy > 0) { // solo si está cayendo
-                const playerBottom = player.y + (player.isJumping ? player.height / 3 : player.height / 2);
+                const playerBottom = player.y + player.height / 2;
 
                 for (let i = 0; i < platforms.length; i++) {
                     const p = platforms[i];
 
                     if (
-                        player.x < p.x + PLATFORM_WIDTH &&
-                        player.x + player.width > p.x &&
+                        player.x - player.width / 2 < p.x + PLATFORM_WIDTH &&
+                        player.x + player.width / 2 > p.x &&
                         playerBottom > p.y &&
                         playerBottom < p.y + PLATFORM_HEIGHT
                     ) {
                         // colisión con parte superior
                         if (player.vy > 0 && playerBottom < p.y + PLATFORM_HEIGHT / 2) {
-                            player.y = p.y - (player.isJumping ? player.height / 3 : player.height / 2);
+                            player.y = p.y - player.height / 2;
                             player.vy = JUMP_VELOCITY;
                             player.isJumping = true;
                         }
@@ -303,7 +303,7 @@
             const zoneIndex = Math.floor(player.maxHeight / ZONE_HEIGHT);
 
             if (zoneIndex >= 1) {
-                platformRange = W * (0.8 - Math.min(zoneIndex * 0.1, 0.4)); // se vuelven más centradas/difíciles
+                platformRange = W * (0.8 - Math.min(zoneIndex * 0.1, 0.4)); // se vuelven más difíciles
             }
 
             const newX = minX + Math.random() * (maxX - minX);
@@ -338,69 +338,44 @@
             ctx.fillText(`Zona: ${zoneName}`, W - 10, 22);
         }
 
-        // Gusano vectorial (sin imágenes externas)
+        // Personaje como un "8" simple
         function drawPlayer() {
             ctx.save();
             ctx.translate(player.x, player.y);
 
-            const baseR = PLAYER_SIZE / 2;
+            const rTop = PLAYER_SIZE * 0.5;  // círculo de arriba (cabeza)
+            const rBot = PLAYER_SIZE * 0.6;  // círculo de abajo (cuerpo)
 
-            // estiramiento según estado
-            let stretch = 0;
-            if (player.isJumping) {
-                stretch = 0.9;                // muy estirado al subir
-            } else if (player.vy > 600) {
-                stretch = 0.3;                // un poco estirado al caer rápido
-            }
-
-            const bodyWidth  = baseR * 1.6;
-            const bodyHeight = baseR * (1.4 + 2.0 * stretch);
-
-            const hw = bodyWidth / 2;
-            const hh = bodyHeight / 2;
-
-            // cuerpo tipo cápsula
+            // cuerpo: círculo de abajo
+            const gradBot = ctx.createLinearGradient(-rBot, 0, rBot, 0);
+            gradBot.addColorStop(0, "#ffcc88");
+            gradBot.addColorStop(1, "#ff8855");
+            ctx.fillStyle = gradBot;
             ctx.beginPath();
-            ctx.moveTo(-hw, -hh + hw);
-            ctx.arc(-hw, -hh + hw, hw, Math.PI, -Math.PI / 2);
-            ctx.lineTo(hw, -hh);
-            ctx.arc(hw, -hh + hw, hw, -Math.PI / 2, 0);
-            ctx.lineTo(hw, hh - hw);
-            ctx.arc(hw, hh - hw, hw, 0, Math.PI / 2);
-            ctx.lineTo(-hw, hh);
-            ctx.arc(-hw, hh - hw, hw, Math.PI / 2, Math.PI);
-            ctx.closePath();
-
-            const grad = ctx.createLinearGradient(0, -hh, 0, hh);
-            grad.addColorStop(0, "#ffcc88");
-            grad.addColorStop(0.5, "#ff9966");
-            grad.addColorStop(1, "#ff6655");
-            ctx.fillStyle = grad;
+            ctx.arc(0, rBot * 0.4, rBot, 0, Math.PI * 2);
             ctx.fill();
 
-            ctx.lineWidth = 2;
+            // círculo de arriba
+            const gradTop = ctx.createLinearGradient(-rTop, -rTop, rTop, rTop);
+            gradTop.addColorStop(0, "#ffe4aa");
+            gradTop.addColorStop(1, "#ff9966");
+            ctx.fillStyle = gradTop;
+            ctx.beginPath();
+            ctx.arc(0, -rTop * 0.9, rTop, 0, Math.PI * 2);
+            ctx.fill();
+
             ctx.strokeStyle = "#331515";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, rBot * 0.4, rBot, 0, Math.PI * 2);
+            ctx.arc(0, -rTop * 0.9, rTop, 0, Math.PI * 2);
             ctx.stroke();
 
-            // líneas de segmentos
-            ctx.strokeStyle = "rgba(255,255,255,0.35)";
-            ctx.lineWidth = 1;
-            for (let i = -2; i <= 2; i++) {
-                const yy = (i / 3) * hh * 0.9;
-                ctx.beginPath();
-                ctx.moveTo(-hw * 0.7, yy);
-                ctx.lineTo(hw * 0.7, yy);
-                ctx.stroke();
-            }
-
-            // carita
-            const faceY = -hh * 0.2;
-
-            // ojos
+            // ojos en el círculo de arriba
             ctx.fillStyle = "#ffffff";
             ctx.beginPath();
-            ctx.arc(-hw * 0.3, faceY - 2, 2, 0, Math.PI * 2);
-            ctx.arc(hw * 0.3, faceY - 2, 2, 0, Math.PI * 2);
+            ctx.arc(-rTop * 0.35, -rTop * 1.0, 2, 0, Math.PI * 2);
+            ctx.arc( rTop * 0.35, -rTop * 1.0, 2, 0, Math.PI * 2);
             ctx.fill();
 
             // boca
@@ -408,12 +383,15 @@
             ctx.lineWidth = 1.5;
             ctx.beginPath();
             if (player.isJumping) {
-                ctx.arc(0, faceY + 3, 4, 0, Math.PI, false); // feliz
+                // feliz al subir
+                ctx.arc(0, -rTop * 0.75, 4, 0, Math.PI, false);
             } else if (player.vy > 600) {
-                ctx.moveTo(-3, faceY + 4);
-                ctx.lineTo(3, faceY + 4);                    // preocupado
+                // recta al caer rápido
+                ctx.moveTo(-3, -rTop * 0.7);
+                ctx.lineTo( 3, -rTop * 0.7);
             } else {
-                ctx.arc(0, faceY + 3, 4, 0, Math.PI);        // neutro
+                // ligera sonrisa neutra
+                ctx.arc(0, -rTop * 0.8, 4, 0, Math.PI);
             }
             ctx.stroke();
 
