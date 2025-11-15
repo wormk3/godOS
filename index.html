@@ -1,72 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ascensión Infinita</title>
+    <style>
+        /* Estilos para el canvas y overlays */
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100%;
+            background: #000;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            font-size: 2rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div id="startOverlay" class="overlay">TOCA PARA EMPEZAR</div>
+    <div id="gameOverOverlay" class="overlay" style="display:none;">GAME OVER - TOCA PARA REINICIAR</div>
+    <canvas></canvas>
 
-⸻
+    <script>
+        /* ===============================
+        ASCENSIÓN INFINITA (Fase 2 Prototipo)
+        =============================== */
 
-Quiero que actúes como un desarrollador experto en videojuegos HTML5/Canvas, especializado en física mobile (iOS/Android). Continuarás el desarrollo de mi juego llamado ASCENSIÓN INFINITA.
+        // Variables iniciales
+        const canvas = document.querySelector("canvas");
+        const ctx = canvas.getContext("2d");
+        const startOverlay = document.getElementById("startOverlay");
+        const gameOverOverlay = document.getElementById("gameOverOverlay");
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+        let started = false;
+        let gameOver = false;
+        let platforms = [];
+        let worm = {
+            x: width / 2,
+            y: height - 60,
+            radius: 20,
+            velocity: { x: 0, y: 0 }, // Física
+            sprite: null,
+            jumping: false,
+        };
+        let gameData = {
+            heightReached: 0,
+            currentZone: "Jardín",
+            platformSpacing: 120,
+        };
+        const backgroundGradient = ctx.createLinearGradient(0, 0, 0, height);
 
-📌 Descripción general del juego
+        // Constantes de física y control
+        const GRAVITY = 0.8;
+        const FRICTION = 0.98;
+        const MAX_VELOCITY_X = 6; // Máxima velocidad horizontal
+        const SENSITIVITY = 0.1; // Sensibilidad en móvil
 
-Es un juego tipo Doodle Jump, donde rebotas en plataformas y subes infinitamente. El personaje actual es una bola, pero estoy migrando a un “gusano” estilo cartoon (enrollado cuando está quieto y estirado al saltar).
+        // Crear canvas adaptado a móvil
+        canvas.width = width;
+        canvas.height = height;
 
-El jugador avanza subiendo, desbloquea zonas visuales según la altura (Jardín → Cielo → Atmósfera → Espacio → Neon).
-El fondo cambia de color dinámicamente con gradientes.
+        // Sprite de gusano en base64 (SVG)
+        const wormSpriteBase64 = "data:image/svg+xml;base64," +
+            btoa(`
+                <svg xmlns="http://www.w3.org/2000/svg" width="60" height="30">
+                    <circle cx="15" cy="15" r="10" fill="green" />
+                    <circle cx="30" cy="15" r="10" fill="lime" />
+                    <circle cx="45" cy="15" r="10" fill="lightgreen" />
+                </svg>`);
+        const wormImage = new Image();
+        wormImage.src = wormSpriteBase64;
 
-📌 Controles
-	•	En móvil (iPhone): mover inclinando el celular (DeviceMotionEvent).
-	•	La sensibilidad debe ser igual o muy similar a Doodle Jump (baja y controlada).
-	•	El juego NO debe moverse hasta que el jugador toque una vez la pantalla → mostramos “Toca para empezar”.
-	•	En PC: flechas izquierda/derecha.
+        // Dibujar escenarios
+        function drawBackground() {
+            const colorStops = {
+                Jardín: ["#76c893", "#6c757d"],
+                Cielo: ["#67c5ff", "#b3daff"],
+                Atmósfera: ["#4c84c8", "#27374d"],
+                Espacio: ["#191d42", "#070810"],
+                Neon: ["#ff00de", "#650090"],
+            };
+            const heightPerZone = 2000; // Cambios cromáticos conforme avanzas por zonas
+            const zoneKeys = Object.keys(colorStops);
 
-📌 Problema que necesito que soluciones
+            for (let i = 0; i < zoneKeys.length; i++) {
+                if (gameData.heightReached <= (i + 1) * heightPerZone) {
+                    gameData.currentZone = zoneKeys[i];
+                    break;
+                }
+            }
 
-En iPhone el juego se ve por un segundo y luego queda solo el fondo porque:
-	•	El personaje cae apenas carga → muere → gameOver = true.
-	•	Esto da la impresión de que el juego está congelado.
+            backgroundGradient.addColorStop(0, colorStops[gameData.currentZone][0]);
+            backgroundGradient.addColorStop(1, colorStops[gameData.currentZone][1]);
 
-📌 Lo que quiero implementar obligatoriamente
-	1.	Crear variable started = false.
-	2.	FRENAR toda la física del juego hasta que:
-	•	el jugador toque la pantalla (touchstart o click).
-	3.	Mostrar overlay:
-	•	“TOCA PARA EMPEZAR”
-	4.	Cuando toque:
-	•	activar sensores de movimiento
-	•	iniciar física
-	•	ocultar overlay
-	5.	Si el jugador muere:
-	•	Mostrar “GAME OVER – Toca para reiniciar”
-	•	Al tocar otra vez → reiniciar juego con started = true
+            ctx.fillStyle = backgroundGradient;
+            ctx.fillRect(0, 0, width, height);
+        }
 
-📌 Fase 2 (lo que debes entregar)
-
-✔ Mejorar sensibilidad móvil (baja, suave)
-✔ Reemplazar la bola por un sprite de gusano (te pido que tú generes un sprite simple en base64 o SVG si es necesario).
-✔ Animación del gusano:
-	•	enrollado cuando está quieto
-	•	estirado cuando salta
-✔ Mejorar generación de plataformas para evitar que aparezcan siempre en el centro.
-✔ Hacerlas más aleatorias, más difíciles mientras subes.
-✔ Fondos hermosos con gradientes dinámicos.
-✔ Arquitectura limpia, todas las funciones organizadas.
-✔ Código compatible con GitHub Pages (un solo archivo HTML con CSS y JS embebido).
-
-📌 Formato que debes entregarme
-
-Debes darme un único archivo HTML con:
-	•	<style> para estilos
-	•	<canvas> como área del juego
-	•	<script> con TODA la lógica
-	•	Código organizado y comentado
-	•	Sprite del gusano embebido en SVG o Base64 (para no depender de archivos externos)
-
-📌 Resumen técnico (muy importante)
-	•	Canvas adaptado a móvil (alto total, sin scroll).
-	•	DeviceMotionEvent con sensibilidad reducida.
-	•	Física basada en deltaTime.
-	•	Plataforma infinita.
-	•	Zonas visuales según altura.
-	•	Reinicio sin recargar página.
-	•	Animación del personaje.
-
-📌 Tu objetivo final
-
-Generar un prototipo Fase 2 totalmente funcional, hermoso, fluido en iPhone, y con el gusano animado.
+        // Dibujar gusano
+        function drawWorm() {
+            ctx.save();
+            ctx.translate(worm.x, worm.y);
+            ctx.drawImage(
+                wormImage, 
+                -30, -30, 
+            ); 
+           
+        // añadir
