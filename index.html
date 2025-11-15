@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Ascensión Infinita – Gusano v4</title>
+  <title>Ascensión Infinita – Gusano v5</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <style>
     body {
@@ -74,11 +74,11 @@
       vy: 0,
     };
 
-    // FÍSICA SUAVIZADA (parecida a la inicial)
+    // FÍSICA tipo Doodle: menos sensible, más amortiguado
     const GRAVITY = -0.5;
     const JUMP_SPEED = 13.8;
-    let HORIZ_SPEED_MAX = 5.0;
-    const FRICTION_AIR = 0.02;
+    let HORIZ_SPEED_MAX = 4.5;   // antes 5.0
+    const FRICTION_AIR = 0.025;  // un poco más fricción
 
     const platforms = [];
     const BASE_PLATFORM_WIDTH = 80;
@@ -88,11 +88,11 @@
     let tiltX = 0; // -1..1
     const keys = { left: false, right: false };
 
-    // --- SPRITE DEL GUSANO (opcional) ---
+    // SPRITE opcional
     const wormSprite = new Image();
     let wormSpriteLoaded = false;
     wormSprite.onload = () => { wormSpriteLoaded = true; };
-    wormSprite.src = "gusano.png"; // pon aquí tu sprite PNG (mismo root que index.html)
+    wormSprite.src = "gusano.png"; // pon aquí tu sprite si quieres
 
     function difficultyFactor() {
       return Math.min(maxHeight / 1500, 3);
@@ -207,9 +207,7 @@
     function updateHUD() {
       const zone = getZoneName(maxHeight);
       hud.textContent = "Altura: " + Math.floor(maxHeight) + " m · Zona: " + zone;
-      if (gameOver) {
-        hud.textContent += " · GAME OVER (toca o pulsa R para reiniciar)";
-      }
+      if (gameOver) hud.textContent += " · GAME OVER (toca o pulsa R para reiniciar)";
     }
 
     function worldToScreenY(yWorld) {
@@ -270,15 +268,15 @@
       const factor = dt / 16;
 
       const diff = difficultyFactor();
-      HORIZ_SPEED_MAX = 5.0 + diff * 0.7; // sube un poco con la altura
+      HORIZ_SPEED_MAX = 4.5 + diff * 0.6;
 
       let inputX = 0;
       if (tiltControlActive) inputX += tiltX;
       if (keys.left) inputX -= 1;
       if (keys.right) inputX += 1;
 
-      // influencia moderada del input (más suave)
-      player.vx += inputX * 0.8 * factor;
+      // MENOS fuerza del input → hay que inclinar más
+      player.vx += inputX * 0.6 * factor;
       player.vx *= (1 - FRICTION_AIR * factor);
 
       if (player.vx > HORIZ_SPEED_MAX) player.vx = HORIZ_SPEED_MAX;
@@ -291,7 +289,6 @@
       if (player.x < -player.radius) player.x = W + player.radius;
       if (player.x > W + player.radius) player.x = -player.radius;
 
-      // plataformas móviles
       for (const p of platforms) {
         if (p.type === "moving") {
           p.x += p.vx * factor;
@@ -317,9 +314,7 @@
         }
       }
 
-      if (player.y > cameraY + H * 0.4) {
-        cameraY = player.y - H * 0.4;
-      }
+      if (player.y > cameraY + H * 0.4) cameraY = player.y - H * 0.4;
 
       if (player.y > maxHeight) {
         maxHeight = player.y;
@@ -334,7 +329,7 @@
       addPlatformsAboveIfNeeded();
     }
 
-    // 🐛 GUSANO VECTORIAL (fallback si no hay sprite)
+    // Gusano vectorial
     function drawWormVector(px, pyScreen) {
       const r = player.radius;
 
@@ -393,11 +388,9 @@
       ctx.restore();
     }
 
-    // Dibujo del gusano: si hay sprite lo usamos, si no, vector
     function drawWorm(px, pyScreen) {
       const r = player.radius;
 
-      // mismo "stretch" que en el vector para estirar el sprite
       let stretch = 0;
       if (player.vy > 1) {
         stretch = Math.min(player.vy / 12, 1);
@@ -529,8 +522,8 @@
 
     function handleOrientation(event) {
       const gamma = event.gamma || 0;
-      // sensibilidad SUAVE (como la primera): /18
-      let norm = gamma / 18;
+      // SENSIBILIDAD MUY BAJA tipo Doodle Jump
+      let norm = gamma / 30; // necesitas inclinar más para mover
       if (norm > 1) norm = 1;
       if (norm < -1) norm = -1;
       tiltX = norm;
