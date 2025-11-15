@@ -2,126 +2,478 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ascensión Infinita</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>ASCENSIÓN INFINITA</title>
     <style>
-        /* Estilos para el canvas y overlays */
-        html, body {
+        /* Pantalla completa en móvil, sin scroll */
+        body {
             margin: 0;
-            padding: 0;
             overflow: hidden;
-            height: 100%;
-            background: #000;
+            touch-action: none; /* desactiva zoom/scroll gestual */
+            background-color: #000;
             font-family: Arial, sans-serif;
         }
         canvas {
             display: block;
         }
-        .overlay {
+        #overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            color: white;
-            font-size: 2rem;
-            display: flex;
+            display: flex; /* visible al inicio */
             justify-content: center;
             align-items: center;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
             z-index: 10;
+            cursor: pointer;
+        }
+        #overlay-content {
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
         }
     </style>
 </head>
 <body>
-    <div id="startOverlay" class="overlay">TOCA PARA EMPEZAR</div>
-    <div id="gameOverOverlay" class="overlay" style="display:none;">GAME OVER - TOCA PARA REINICIAR</div>
-    <canvas></canvas>
+
+    <canvas id="gameCanvas"></canvas>
+    <div id="overlay">
+        <div id="overlay-content">TOCA PARA EMPEZAR</div>
+    </div>
 
     <script>
-        /* ===============================
-        ASCENSIÓN INFINITA (Fase 2 Prototipo)
-        =============================== */
+        // === VARIABLES GLOBALES ===
 
-        // Variables iniciales
-        const canvas = document.querySelector("canvas");
-        const ctx = canvas.getContext("2d");
-        const startOverlay = document.getElementById("startOverlay");
-        const gameOverOverlay = document.getElementById("gameOverOverlay");
-        let width = window.innerWidth;
-        let height = window.innerHeight;
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('overlay');
+        const overlayContent = document.getElementById('overlay-content');
+
+        // Estado del juego
         let started = false;
         let gameOver = false;
+        let lastTime = 0;
+        let deltaTime = 0;
+
+        // Tamaño pantalla
+        let W, H;
+
+        // Zonas y colores (por altura acumulada)
+        const ZONE_HEIGHT = 10000;
+        const COLORS = {
+            'Jardín':    { top: 'hsl(120, 50%, 40%)', bottom: 'hsl(60, 50%, 50%)' },
+            'Cielo':     { top: 'hsl(200, 70%, 70%)', bottom: 'hsl(180, 50%, 60%)' },
+            'Atmósfera': { top: 'hsl(240, 50%, 50%)', bottom: 'hsl(200, 70%, 70%)' },
+            'Espacio':   { top: 'hsl(270, 40%, 30%)', bottom: 'hsl(240, 50%, 50%)' },
+            'Neon':      { top: 'hsl(300, 80%, 60%)', bottom: 'hsl(0, 80%, 60%)'   }
+        };
+        const ZONES = Object.keys(COLORS);
+
+        // Jugador (gusano)
+        const PLAYER_SIZE = 30;
+        let player = {
+            x: 0,
+            y: 0,
+            vx: 0,
+            vy: 0,
+            width: PLAYER_SIZE * 1.6,
+            height: PLAYER_SIZE * 2.0,
+            isJumping: false,
+            maxHeight: 0,
+            score: 0
+        };
+
+        // Física
+        const GRAVITY = 1500;
+        const JUMP_VELOCITY = -800;
+        const MAX_HORIZONTAL_VELOCITY = 300;
+        const DRAG = 0.98;
+
+        // Controles móviles (inclinación)
+        const TILT_SENSITIVITY = 700; // más bajo = menos sensible (tipo Doodle Jump)
+        let tiltX = 0;
+
+        // Plataformas
+        const PLATFORM_COUNT = 15;
+        const PLATFORM_WIDTH = 60;
+        const PLATFORM_HEIGHT = 10;
         let platforms = [];
-        let worm = {
-            x: width / 2,
-            y: height - 60,
-            radius: 20,
-            velocity: { x: 0, y: 0 }, // Física
-            sprite: null,
-            jumping: false,
-        };
-        let gameData = {
-            heightReached: 0,
-            currentZone: "Jardín",
-            platformSpacing: 120,
-        };
-        const backgroundGradient = ctx.createLinearGradient(0, 0, 0, height);
+        let maxPlatformY = 0;
 
-        // Constantes de física y control
-        const GRAVITY = 0.8;
-        const FRICTION = 0.98;
-        const MAX_VELOCITY_X = 6; // Máxima velocidad horizontal
-        const SENSITIVITY = 0.1; // Sensibilidad en móvil
+        // === INICIALIZACIÓN ===
 
-        // Crear canvas adaptado a móvil
-        canvas.width = width;
-        canvas.height = height;
+        function setupCanvas() {
+            W = window.innerWidth;
+            H = window.innerHeight;
+            canvas.width = W;
+            canvas.height = H;
 
-        // Sprite de gusano en base64 (SVG)
-        const wormSpriteBase64 = "data:image/svg+xml;base64," +
-            btoa(`
-                <svg xmlns="http://www.w3.org/2000/svg" width="60" height="30">
-                    <circle cx="15" cy="15" r="10" fill="green" />
-                    <circle cx="30" cy="15" r="10" fill="lime" />
-                    <circle cx="45" cy="15" r="10" fill="lightgreen" />
-                </svg>`);
-        const wormImage = new Image();
-        wormImage.src = wormSpriteBase64;
+            // Posición inicial
+            player.x = W / 2;
+            player.y = H - 100;
+            player.vx = 0;
+            player.vy = 0;
+            player.maxHeight = 0;
+            player.score = 0;
 
-        // Dibujar escenarios
-        function drawBackground() {
-            const colorStops = {
-                Jardín: ["#76c893", "#6c757d"],
-                Cielo: ["#67c5ff", "#b3daff"],
-                Atmósfera: ["#4c84c8", "#27374d"],
-                Espacio: ["#191d42", "#070810"],
-                Neon: ["#ff00de", "#650090"],
-            };
-            const heightPerZone = 2000; // Cambios cromáticos conforme avanzas por zonas
-            const zoneKeys = Object.keys(colorStops);
+            generateInitialPlatforms();
+        }
 
-            for (let i = 0; i < zoneKeys.length; i++) {
-                if (gameData.heightReached <= (i + 1) * heightPerZone) {
-                    gameData.currentZone = zoneKeys[i];
-                    break;
+        function generateInitialPlatforms() {
+            platforms = [];
+            maxPlatformY = H;
+
+            // Plataforma de inicio
+            platforms.push({
+                x: W / 2 - PLATFORM_WIDTH / 2,
+                y: H - 50,
+                type: 'normal'
+            });
+
+            for (let i = 0; i < PLATFORM_COUNT; i++) {
+                generateNewPlatform(maxPlatformY);
+            }
+        }
+
+        function startGame() {
+            started = true;
+            gameOver = false;
+            overlay.style.display = 'none';
+
+            // Activar sensores de movimiento (móvil)
+            if ('DeviceMotionEvent' in window) {
+                window.addEventListener('devicemotion', handleTilt, false);
+            }
+
+            player.vy = JUMP_VELOCITY;
+            player.isJumping = true;
+        }
+
+        function restartGame() {
+            setupCanvas();
+            gameOver = false;
+            started = true;
+            overlay.style.display = 'none';
+            player.vy = JUMP_VELOCITY;
+            player.isJumping = true;
+        }
+
+        function endGame() {
+            gameOver = true;
+            started = false;
+            overlayContent.innerHTML = `GAME OVER<br>Puntuación: ${player.score}<br>TOCA PARA REINICIAR`;
+            overlay.style.display = 'flex';
+        }
+
+        // === ENTRADA (INPUT) ===
+
+        function handleInput(event) {
+            event.preventDefault();
+
+            if (!started && !gameOver) {
+                startGame();
+            } else if (gameOver) {
+                restartGame();
+            }
+        }
+
+        function handleTilt(event) {
+            // x negativo y positivo dependen de orientación; puedes invertir si se siente al revés
+            tiltX = -event.accelerationIncludingGravity.x;
+        }
+
+        function handleKeyDown(event) {
+            if (event.key === 'ArrowLeft') {
+                player.vx = -MAX_HORIZONTAL_VELOCITY;
+            } else if (event.key === 'ArrowRight') {
+                player.vx = MAX_HORIZONTAL_VELOCITY;
+            }
+        }
+
+        function handleKeyUp(event) {
+            if (event.key === 'ArrowLeft' && player.vx < 0) {
+                player.vx = 0;
+            } else if (event.key === 'ArrowRight' && player.vx > 0) {
+                player.vx = 0;
+            }
+        }
+
+        // === LÓGICA DEL JUGADOR ===
+
+        function updatePlayer(dt) {
+            if (gameOver || !started) return;
+
+            // 1. Movimiento horizontal (móvil)
+            if ('DeviceMotionEvent' in window) {
+                const targetVx = tiltX * TILT_SENSITIVITY;
+                player.vx = Math.max(
+                    Math.min(targetVx, MAX_HORIZONTAL_VELOCITY),
+                    -MAX_HORIZONTAL_VELOCITY
+                );
+            }
+
+            // Arrastre ligero si no hay input
+            if (Math.abs(player.vx) < 1) {
+                player.vx *= DRAG;
+            }
+
+            player.x += player.vx * dt;
+
+            // 2. Movimiento vertical (gravedad)
+            player.vy += GRAVITY * dt;
+            player.y += player.vy * dt;
+
+            // ¿está saltando (subiendo)?
+            player.isJumping = player.vy < 0;
+
+            // wrap horizontal
+            if (player.x < -player.width / 2) {
+                player.x = W + player.width / 2;
+            } else if (player.x > W + player.width / 2) {
+                player.x = -player.width / 2;
+            }
+
+            // 3. Scroll vertical / cámara
+            if (player.y < H / 2) {
+                const scrollAmount = H / 2 - player.y;
+                player.y = H / 2;
+                platforms.forEach(p => p.y += scrollAmount);
+                maxPlatformY += scrollAmount;
+                player.maxHeight += scrollAmount;
+                player.score = Math.floor(player.maxHeight / 100);
+
+                // generar más plataformas arriba
+                while (platforms[platforms.length - 1].y > -H / 4) {
+                    generateNewPlatform(platforms[platforms.length - 1].y);
                 }
             }
 
-            backgroundGradient.addColorStop(0, colorStops[gameData.currentZone][0]);
-            backgroundGradient.addColorStop(1, colorStops[gameData.currentZone][1]);
-
-            ctx.fillStyle = backgroundGradient;
-            ctx.fillRect(0, 0, width, height);
+            // 4. caer fuera de la pantalla → muerte
+            if (player.y > H + player.height / 2) {
+                endGame();
+            }
         }
 
-        // Dibujar gusano
-        function drawWorm() {
+        function checkCollisions() {
+            if (gameOver || !started) return;
+
+            if (player.vy > 0) { // solo si está cayendo
+                const playerBottom = player.y + (player.isJumping ? player.height / 3 : player.height / 2);
+
+                for (let i = 0; i < platforms.length; i++) {
+                    const p = platforms[i];
+
+                    if (
+                        player.x < p.x + PLATFORM_WIDTH &&
+                        player.x + player.width > p.x &&
+                        playerBottom > p.y &&
+                        playerBottom < p.y + PLATFORM_HEIGHT
+                    ) {
+                        // colisión con parte superior
+                        if (player.vy > 0 && playerBottom < p.y + PLATFORM_HEIGHT / 2) {
+                            player.y = p.y - (player.isJumping ? player.height / 3 : player.height / 2);
+                            player.vy = JUMP_VELOCITY;
+                            player.isJumping = true;
+                        }
+                    }
+                }
+            }
+
+            // limpiar plataformas muy abajo
+            platforms = platforms.filter(p => p.y < H + 50);
+        }
+
+        // === PLATAFORMAS ===
+
+        function generateNewPlatform(lastY) {
+            const minSpacing = H * 0.08;
+            const maxSpacing = H * 0.12;
+            const minX = 50;
+            const maxX = W - PLATFORM_WIDTH - 50;
+
+            const newY = lastY - (minSpacing + Math.random() * (maxSpacing - minSpacing));
+
+            let platformRange = W * 0.8;
+            const zoneIndex = Math.floor(player.maxHeight / ZONE_HEIGHT);
+
+            if (zoneIndex >= 1) {
+                platformRange = W * (0.8 - Math.min(zoneIndex * 0.1, 0.4)); // se vuelven más centradas/difíciles
+            }
+
+            const newX = minX + Math.random() * (maxX - minX);
+
+            platforms.push({
+                x: newX,
+                y: newY,
+                type: 'normal'
+            });
+
+            maxPlatformY = newY;
+        }
+
+        // === DIBUJO / RENDER ===
+
+        function drawBackground() {
+            const currentHeight = Math.floor(player.maxHeight);
+            const currentZoneIndex = Math.floor(currentHeight / ZONE_HEIGHT);
+            const zoneName = ZONES[currentZoneIndex] || ZONES[ZONES.length - 1];
+            const currentColors = COLORS[zoneName];
+
+            const gradient = ctx.createLinearGradient(0, 0, 0, H);
+            gradient.addColorStop(0, currentColors.top);
+            gradient.addColorStop(1, currentColors.bottom);
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, W, H);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'right';
+            ctx.fillText(`Zona: ${zoneName}`, W - 10, 22);
+        }
+
+        // Gusano vectorial (sin imágenes externas)
+        function drawPlayer() {
             ctx.save();
-            ctx.translate(worm.x, worm.y);
-            ctx.drawImage(
-                wormImage, 
-                -30, -30, 
-            ); 
-           
-        // añadir
+            ctx.translate(player.x, player.y);
+
+            const baseR = PLAYER_SIZE / 2;
+
+            // estiramiento según estado
+            let stretch = 0;
+            if (player.isJumping) {
+                stretch = 0.9;                // muy estirado al subir
+            } else if (player.vy > 600) {
+                stretch = 0.3;                // un poco estirado al caer rápido
+            }
+
+            const bodyWidth  = baseR * 1.6;
+            const bodyHeight = baseR * (1.4 + 2.0 * stretch);
+
+            const hw = bodyWidth / 2;
+            const hh = bodyHeight / 2;
+
+            // cuerpo tipo cápsula
+            ctx.beginPath();
+            ctx.moveTo(-hw, -hh + hw);
+            ctx.arc(-hw, -hh + hw, hw, Math.PI, -Math.PI / 2);
+            ctx.lineTo(hw, -hh);
+            ctx.arc(hw, -hh + hw, hw, -Math.PI / 2, 0);
+            ctx.lineTo(hw, hh - hw);
+            ctx.arc(hw, hh - hw, hw, 0, Math.PI / 2);
+            ctx.lineTo(-hw, hh);
+            ctx.arc(-hw, hh - hw, hw, Math.PI / 2, Math.PI);
+            ctx.closePath();
+
+            const grad = ctx.createLinearGradient(0, -hh, 0, hh);
+            grad.addColorStop(0, "#ffcc88");
+            grad.addColorStop(0.5, "#ff9966");
+            grad.addColorStop(1, "#ff6655");
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = "#331515";
+            ctx.stroke();
+
+            // líneas de segmentos
+            ctx.strokeStyle = "rgba(255,255,255,0.35)";
+            ctx.lineWidth = 1;
+            for (let i = -2; i <= 2; i++) {
+                const yy = (i / 3) * hh * 0.9;
+                ctx.beginPath();
+                ctx.moveTo(-hw * 0.7, yy);
+                ctx.lineTo(hw * 0.7, yy);
+                ctx.stroke();
+            }
+
+            // carita
+            const faceY = -hh * 0.2;
+
+            // ojos
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath();
+            ctx.arc(-hw * 0.3, faceY - 2, 2, 0, Math.PI * 2);
+            ctx.arc(hw * 0.3, faceY - 2, 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // boca
+            ctx.strokeStyle = "#552222";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            if (player.isJumping) {
+                ctx.arc(0, faceY + 3, 4, 0, Math.PI, false); // feliz
+            } else if (player.vy > 600) {
+                ctx.moveTo(-3, faceY + 4);
+                ctx.lineTo(3, faceY + 4);                    // preocupado
+            } else {
+                ctx.arc(0, faceY + 3, 4, 0, Math.PI);        // neutro
+            }
+            ctx.stroke();
+
+            ctx.restore();
+
+            // HUD (altura/puntuación)
+            ctx.fillStyle = "white";
+            ctx.font = "bold 20px Arial";
+            ctx.textAlign = "left";
+            ctx.fillText(`Altura: ${player.score}`, 10, 30);
+        }
+
+        function drawPlatforms() {
+            ctx.fillStyle = "#171717";
+            platforms.forEach(p => {
+                ctx.fillRect(p.x, p.y, PLATFORM_WIDTH, PLATFORM_HEIGHT);
+            });
+        }
+
+        // === GAME LOOP ===
+
+        function gameLoop(currentTime) {
+            deltaTime = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
+
+            drawBackground();
+
+            if (started && !gameOver) {
+                updatePlayer(deltaTime);
+                checkCollisions();
+            }
+
+            drawPlatforms();
+            drawPlayer();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // === RECURSOS (ya no hay imágenes, así que es instantáneo) ===
+
+        function loadResources() {
+            return Promise.resolve();
+        }
+
+        function init() {
+            loadResources().then(() => {
+                setupCanvas();
+                window.addEventListener('resize', setupCanvas);
+
+                document.addEventListener('mousedown', handleInput);
+                document.addEventListener('touchstart', handleInput, { passive: false });
+                document.addEventListener('keydown', handleKeyDown);
+                document.addEventListener('keyup', handleKeyUp);
+
+                requestAnimationFrame(gameLoop);
+            });
+        }
+
+        init();
+    </script>
+
+</body>
+</html>
