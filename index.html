@@ -30,7 +30,6 @@
       height: 100%;
     }
 
-    /* Overlay de inicio/game over */
     #overlay {
       position: fixed;
       inset: 0;
@@ -90,7 +89,7 @@
   </div>
 
   <script>
-    // ---------- Utilidades ----------
+    // ---------- Utilidad ----------
     const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
     // ---------- Input ----------
@@ -112,7 +111,7 @@
           this.updateFromKeyboard();
         });
 
-        // Táctil: lado izq / der de la pantalla
+        // Táctil: lado izq / der
         const handleTouch = (ev) => {
           if (!ev.touches || ev.touches.length === 0) {
             this.horizontal = 0;
@@ -131,7 +130,6 @@
           },
           { passive: false }
         );
-
         window.addEventListener(
           "touchmove",
           (ev) => {
@@ -140,11 +138,9 @@
           },
           { passive: false }
         );
-
         window.addEventListener("touchend", () => {
           this.horizontal = 0;
         });
-
         window.addEventListener("touchcancel", () => {
           this.horizontal = 0;
         });
@@ -162,7 +158,7 @@
       }
     }
 
-    // ---------- Player ----------
+    // ---------- Player (con colisión mejorada) ----------
     class Player {
       constructor(game) {
         this.game = game;
@@ -180,8 +176,37 @@
         this.isJumping = false;
       }
 
+      handleCollisions(prevY, platforms) {
+        const cfg = this.game.config;
+        if (this.vy <= 0) return; // solo cuando cae
+
+        const prevBottom = prevY + this.radius;
+        const currBottom = this.y + this.radius;
+
+        for (const p of platforms) {
+          const withinX =
+            this.x + this.radius > p.x &&
+            this.x - this.radius < p.x + p.width;
+
+          // El jugador cruzó la parte superior de la plataforma
+          const crossedTop = prevBottom <= p.y && currBottom >= p.y;
+
+          // Un poco de tolerancia vertical para que se sienta sólido
+          const closeEnough = currBottom <= p.y + p.height + 6;
+
+          if (withinX && crossedTop && closeEnough) {
+            this.y = p.y - this.radius;
+            this.vy = cfg.JUMP_VELOCITY;
+            this.isJumping = true;
+            break;
+          }
+        }
+      }
+
       update(dt, platforms) {
         const cfg = this.game.config;
+
+        const prevY = this.y; // guardamos posición anterior
 
         // Física vertical
         this.vy += cfg.GRAVITY * dt;
@@ -192,45 +217,27 @@
         this.vx += input * cfg.HORIZONTAL_ACCEL * dt;
         this.vx = clamp(this.vx, -cfg.MAX_VX, cfg.MAX_VX);
 
-        // Frenado cuando no hay input
         if (Math.abs(input) < 0.05) {
           this.vx *= cfg.HORIZONTAL_DAMPING;
         }
 
         this.x += this.vx * dt;
 
-        // Wrap horizontal
+        // Wrap
         if (this.x < -this.radius) this.x = this.game.width + this.radius;
         if (this.x > this.game.width + this.radius) this.x = -this.radius;
 
         this.isJumping = this.vy < 0;
 
-        // Altura (para score y gradiente)
+        // Altura / score
         const theoreticalHeight = this.game.spawnBaseY - this.y;
         if (theoreticalHeight > this.maxHeight) {
           this.maxHeight = theoreticalHeight;
           this.score = Math.floor(this.maxHeight / 100);
         }
 
-        // Colisiones con plataformas (solo al caer)
-        if (this.vy > 0) {
-          const bottom = this.y + this.radius;
-          for (const p of platforms) {
-            if (
-              this.x + this.radius > p.x &&
-              this.x - this.radius < p.x + p.width &&
-              bottom > p.y &&
-              bottom < p.y + p.height
-            ) {
-              if (bottom < p.y + p.height / 2) {
-                this.y = p.y - this.radius;
-                this.vy = cfg.JUMP_VELOCITY;
-                this.isJumping = true;
-                break;
-              }
-            }
-          }
-        }
+        // Colisiones
+        this.handleCollisions(prevY, platforms);
       }
 
       draw(ctx) {
@@ -239,7 +246,7 @@
 
         const r = this.radius;
 
-        // Halo suave
+        // Halo
         const glow = ctx.createRadialGradient(
           0,
           0,
@@ -276,8 +283,7 @@
         ctx.strokeStyle = "rgba(30, 18, 50, 0.9)";
         ctx.stroke();
 
-        // Carita simple
-        // Ojos
+        // Carita
         ctx.fillStyle = "#ffffff";
         ctx.beginPath();
         ctx.arc(-r * 0.35, -r * 0.18, 2.3, 0, Math.PI * 2);
@@ -290,7 +296,6 @@
         ctx.arc(r * 0.35, -r * 0.18, 1.1, 0, Math.PI * 2);
         ctx.fill();
 
-        // Boca
         ctx.strokeStyle = "#4d2640";
         ctx.lineWidth = 1.5;
         ctx.beginPath();
@@ -321,40 +326,41 @@
         ctx.save();
 
         // Sombra
-        ctx.fillStyle = "rgba(8, 3, 20, 0.6)";
+        ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
         ctx.fillRect(
           this.x,
-          this.y + this.height * 0.35,
+          this.y + this.height * 0.4,
           this.width,
-          this.height * 0.8
+          this.height * 0.7
         );
 
-        // Base
+        // Cuerpo
         const grad = ctx.createLinearGradient(
           this.x,
           this.y,
           this.x,
           this.y + this.height
         );
-        grad.addColorStop(0, "rgb(198, 176, 255)");
-        grad.addColorStop(1, "rgb(101, 74, 180)");
+        grad.addColorStop(0, "#E4D3FF");
+        grad.addColorStop(1, "#8B5DFF");
         ctx.fillStyle = grad;
         ctx.fillRect(this.x, this.y, this.width, this.height);
 
-        // Borde superior
-        ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
-        ctx.fillRect(this.x, this.y, this.width, 2);
+        // Borde neón
+        ctx.strokeStyle = "#FFCFFF";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(this.x + 0.5, this.y + 0.5, this.width - 1, this.height - 1);
 
         ctx.restore();
       }
     }
 
-    // ---------- Estrellas de fondo ----------
+    // ---------- Estrellas ----------
     class StarField {
       constructor(game, count = 80) {
         this.game = game;
-        this.stars = [];
         this.count = count;
+        this.stars = [];
         this.init();
       }
 
@@ -372,7 +378,7 @@
 
       scroll(dy) {
         for (const s of this.stars) {
-          s.y += dy * 0.5; // parallax suave
+          s.y += dy * 0.5;
           if (s.y > this.game.height) {
             s.y -= this.game.height;
           }
@@ -405,7 +411,7 @@
           JUMP_VELOCITY: -850,
           MAX_VX: 300,
           HORIZONTAL_ACCEL: 1300,
-          HORIZONTAL_DAMPING: 0.90,
+          HORIZONTAL_DAMPING: 0.9,
           PLATFORM_WIDTH: 70,
           PLATFORM_HEIGHT: 12,
           PLATFORM_COUNT: 18
@@ -443,7 +449,6 @@
         this.platforms = [];
         this.maxPlatformY = this.spawnBaseY;
 
-        // Plataforma base
         const baseX = this.width / 2 - this.config.PLATFORM_WIDTH / 2;
         this.platforms.push(
           new Platform(
@@ -515,7 +520,13 @@
         this.state = "RUNNING";
 
         const ov = document.getElementById("overlay-content");
-        ov.querySelector(".tap").textContent = "TOCA PARA REINICIAR";
+        ov.innerHTML = `
+          <h1>ASCENSIÓN INFINITA</h1>
+          <p>Rebota en plataformas y sube lo más alto posible.</p>
+          <p>PC: Usa las flechas ← →</p>
+          <p>Móvil: Toca el lado izquierdo o derecho de la pantalla.</p>
+          <div class="tap">TOCA PARA REINICIAR</div>
+        `;
         document.getElementById("overlay").style.display = "none";
       }
 
@@ -536,30 +547,27 @@
 
         this.player.update(dt, this.platforms);
 
-        // Cámara: mantenemos al jugador aprox en el 40% de la altura
+        // Cámara
         if (this.player.y < this.height * 0.4) {
           const dy = this.height * 0.4 - this.player.y;
           this.player.y = this.height * 0.4;
 
-          // Mover plataformas y base
           for (const p of this.platforms) p.y += dy;
           this.spawnBaseY += dy;
           this.maxPlatformY += dy;
 
           this.starField.scroll(dy);
 
-          // Eliminar plataformas que quedan abajo
           this.platforms = this.platforms.filter(
             (p) => p.y < this.height + 80
           );
 
-          // Generar más arriba
           while (this.maxPlatformY > -this.height * 0.25) {
             this.spawnPlatform();
           }
         }
 
-        // Caída fuera de pantalla
+        // Caída
         if (this.player.y - this.player.radius > this.height + 80) {
           this.gameOver();
         }
@@ -570,7 +578,6 @@
         const h = this.player.maxHeight;
         const t = clamp(h / 25000, 0, 1);
 
-        // Degradado dinámico
         const top = `hsl(${250 - t * 40}, 65%, ${18 + t * 8}%)`;
         const mid = `hsl(${220 - t * 10}, 70%, ${22 + t * 18}%)`;
         const bottom = `hsl(${195}, 75%, ${12 + t * 18}%)`;
@@ -583,7 +590,6 @@
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, this.width, this.height);
 
-        // Lóbulos suaves tipo "dimensión"
         ctx.fillStyle = "rgba(255,255,255,0.04)";
         for (let i = 0; i < 3; i++) {
           const y =
@@ -617,9 +623,7 @@
 
       draw() {
         this.drawBackground();
-
         for (const p of this.platforms) p.draw(this.ctx);
-
         this.player.draw(this.ctx);
         this.drawHud();
       }
@@ -638,10 +642,9 @@
       }
     }
 
-    // ---------- Lanzar juego ----------
     const canvas = document.getElementById("game");
     const game = new Game(canvas);
     requestAnimationFrame(game.loop.bind(game));
   </script>
 </body>
-</html> 
+</html>
