@@ -9,7 +9,7 @@
         body {
             margin: 0;
             overflow: hidden;
-            touch-action: manipulation; /* Mejora la respuesta táctil en móvil */
+            touch-action: none; /* Deshabilita gestos táctiles del navegador como el zoom */
             background-color: #000;
             font-family: Arial, sans-serif;
         }
@@ -22,7 +22,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            display: flex;
+            display: flex; /* Asegura que el overlay esté visible al inicio */
             justify-content: center;
             align-items: center;
             color: white;
@@ -30,12 +30,12 @@
             font-weight: bold;
             text-align: center;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
-            pointer-events: none; /* Permite clicks pasar al canvas */
             z-index: 10;
+            cursor: pointer; /* Muestra un cursor interactivo */
         }
         #overlay-content {
             padding: 20px;
-            background-color: rgba(0, 0, 0, 0.5);
+            background-color: rgba(0, 0, 0, 0.7); /* Hacemos el fondo del texto más oscuro */
             border-radius: 10px;
         }
     </style>
@@ -65,18 +65,18 @@
         let W, H;
         
         // Colores y Zonas (Altura en píxeles)
-        const ZONE_HEIGHT = 10000; // Cada 10,000 píxeles una nueva zona
+        const ZONE_HEIGHT = 10000; 
         const COLORS = {
-            'Jardín': { top: 'hsl(120, 50%, 40%)', bottom: 'hsl(60, 50%, 50%)' }, // Verde/Amarillo
-            'Cielo': { top: 'hsl(200, 70%, 70%)', bottom: 'hsl(180, 50%, 60%)' },  // Azul claro/Cian
-            'Atmósfera': { top: 'hsl(240, 50%, 50%)', bottom: 'hsl(200, 70%, 70%)' }, // Azul/Violeta
-            'Espacio': { top: 'hsl(270, 40%, 30%)', bottom: 'hsl(240, 50%, 50%)' }, // Púrpura oscuro/Azul
-            'Neon': { top: 'hsl(300, 80%, 60%)', bottom: 'hsl(0, 80%, 60%)' } // Magenda/Rojo (Colores vibrantes)
+            'Jardín': { top: 'hsl(120, 50%, 40%)', bottom: 'hsl(60, 50%, 50%)' }, 
+            'Cielo': { top: 'hsl(200, 70%, 70%)', bottom: 'hsl(180, 50%, 60%)' },  
+            'Atmósfera': { top: 'hsl(240, 50%, 50%)', bottom: 'hsl(200, 70%, 70%)' }, 
+            'Espacio': { top: 'hsl(270, 40%, 30%)', bottom: 'hsl(240, 50%, 50%)' }, 
+            'Neon': { top: 'hsl(300, 80%, 60%)', bottom: 'hsl(0, 80%, 60%)' } 
         };
         const ZONES = Object.keys(COLORS);
 
         // Propiedades del Jugador (Gusano)
-        const PLAYER_SIZE = 30; // Radio o mitad de la longitud
+        const PLAYER_SIZE = 30; 
         let player = {
             x: 0,
             y: 0,
@@ -90,14 +90,14 @@
         };
 
         // Física
-        const GRAVITY = 1500; // Píxeles/segundo^2 (más alta para un juego de arcade)
-        const JUMP_VELOCITY = -800; // Velocidad de salto inicial
+        const GRAVITY = 1500; 
+        const JUMP_VELOCITY = -800; 
         const MAX_HORIZONTAL_VELOCITY = 300;
-        const DRAG = 0.98; // Fricción horizontal
+        const DRAG = 0.98; 
 
         // Controles Móviles
-        const TILT_SENSITIVITY = 1000; // Reducido para baja sensibilidad
-        let tiltX = 0; // Valor de inclinación (aceleración en X)
+        const TILT_SENSITIVITY = 1000; 
+        let tiltX = 0; 
 
         // Propiedades de las Plataformas
         const PLATFORM_COUNT = 15;
@@ -106,9 +106,9 @@
         let platforms = [];
         let maxPlatformY = 0;
 
-        // Sprite del Gusano (SVG Base64: Simple círculo para "enrollado" y óvalo para "estirado")
-        const WORM_SVG_ENROLLED = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCIgdmlld0JveD0iMCAwIDMwIDMwIj48Y2lyY2xlIGN4PSIxNSIgY3k9IjE1IiByPSIxMiIgc3R5bGU9ImZpbGw6I2ZmZGE5ZjtzdHJva2U6IzE3MTcxNzsiIHN0cm9rZS13aWR0aD0iMiIvPjwvZ3ZnPg==';
-        const WORM_SVG_STRETCHED = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDMwIDQwIj48ZWxsaXBzZSBjeD0iMTUiIGN5PSIyMCIgcng9IjEyIiByeT0iMTgiIHN0eWxlPSJmaWxsOiNmZmRhOWY7c3Ryb2tlOiMxNzE3MTc7IiBzdHJva2Utd2lkdGg9IjIiLz48L3N2ZyA+';
+        // Sprite del Gusano (SVG Base64)
+        const WORM_SVG_ENROLLED = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCIgdmlld0JveD0iMCAwIDMwIDMwIj48Y2lyY2xlIGN4PSIxNSIgY3k9IjE1IiByPSIxMiIgc3R5bGU9ImZpbGw6I2ZmZGE5ZjtzdHJva2U6IzE3MTcxNzsiIHN0cm9rZS13aWR0aD0iMiIvPjwvZ3N2Zz4=';
+        const WORM_SVG_STRETCHED = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDMwIDQwIj48ZWxsaXBzZSBjeD0iMTUiIGN5PSIyMCIgcng9IjEyIiByeT0iMTgiIHN0eWxlPSJmaWxsOiNmZmRhOWY7c3Ryb2tlOiMxNzE3MTc7IiBzdHJva2Utd2lkdGg9IjIiLz48L2VsbGlwc2U+PC9zdmc+';
         
         let wormImageEnrolled = new Image();
         wormImageEnrolled.src = WORM_SVG_ENROLLED;
@@ -152,67 +152,60 @@
             }
         }
 
-        /** Llama a la inicialización y añade listeners. */
-        function init() {
-            setupCanvas();
-            window.addEventListener('resize', setupCanvas);
-            
-            // Eventos de inicio (click/touch)
-            document.addEventListener('click', handleStart, { once: true });
-            document.addEventListener('touchstart', handleStart, { once: true });
-            
-            // Eventos de control de PC
-            document.addEventListener('keydown', handleKeyDown);
-            document.addEventListener('keyup', handleKeyUp);
+        /** Inicia el juego (quitando el overlay y activando sensores). */
+        function startGame() {
+            console.log("Juego Iniciado.");
+            started = true;
+            gameOver = false;
+            overlay.style.display = 'none';
 
-            // Iniciar el bucle de juego (detenido por 'started = false')
-            requestAnimationFrame(gameLoop);
-        }
-
-        /** Maneja el primer toque o click para empezar o reiniciar. */
-        function handleStart() {
-            if (!started) {
-                // Iniciar juego
-                started = true;
-                gameOver = false;
-                overlay.style.display = 'none';
-                
-                // Activar sensores de movimiento solo en móvil
-                if ('DeviceOrientationEvent' in window) {
-                    window.addEventListener('devicemotion', handleTilt, false);
-                }
-                
-                // Reiniciar listeners de inicio para un posible reinicio
-                document.removeEventListener('click', handleStart);
-                document.removeEventListener('touchstart', handleStart);
-
-            } else if (gameOver) {
-                // Reiniciar juego
-                restartGame();
+            // Activar sensores de movimiento solo en móvil
+            if ('DeviceOrientationEvent' in window) {
+                window.addEventListener('devicemotion', handleTilt, false);
             }
+            player.vy = JUMP_VELOCITY; // Iniciar con un salto
         }
 
         /** Reinicia todas las variables del juego. */
         function restartGame() {
+            console.log("Juego Reiniciado.");
             setupCanvas();
             gameOver = false;
-            started = true; // No necesita otro toque, ya está empezado
+            started = true; 
             overlay.style.display = 'none';
-            player.y = H - 100;
-            player.vy = JUMP_VELOCITY; // Inicia con un pequeño salto
+            player.vy = JUMP_VELOCITY;
             player.isJumping = true;
-            
-            // Asegurar que el listener de reinicio esté activo
-            document.removeEventListener('click', restartGame);
-            document.removeEventListener('touchstart', restartGame);
+        }
+
+        /** Establece el estado de "GAME OVER". */
+        function endGame() {
+            gameOver = true;
+            started = false; // Detener la física
+            overlayContent.innerHTML = `GAME OVER<br>Puntuación: ${player.score}<br>TOCA PARA REINICIAR`;
+            overlay.style.display = 'flex';
         }
 
         // === GESTIÓN DE ENTRADA (CONTROLES) ===
+        
+        /** Unifica el manejo de click/toque para inicio y reinicio. */
+        function handleInput(event) {
+            console.log("Input event received. Started:", started, "Game Over:", gameOver); 
+
+            // Prevenir comportamientos por defecto (zoom, scroll)
+            event.preventDefault(); 
+            
+            if (!started && !gameOver) {
+                // Primer toque (o click)
+                startGame();
+            } else if (gameOver) {
+                // Reinicio
+                restartGame();
+            }
+        }
+
 
         /** Maneja la inclinación del dispositivo (DeviceMotionEvent). */
         function handleTilt(event) {
-            // Utilizamos el eje de aceleración sin gravedad (accelerationIncludingGravity.x) 
-            // y lo invertimos si es necesario para simular Doodle Jump
             tiltX = -event.accelerationIncludingGravity.x; 
         }
 
@@ -236,25 +229,18 @@
 
         // === LÓGICA DE FÍSICA Y JUEGO ===
 
-        /**
-         * Actualiza la posición y velocidad del jugador.
-         * @param {number} dt Delta Time en segundos.
-         */
+        /** Actualiza la posición y velocidad del jugador. */
         function updatePlayer(dt) {
             if (gameOver || !started) return;
 
             // 1. Movimiento Horizontal (Mobile vs PC)
-            
             if ('DeviceOrientationEvent' in window) {
                 // Movimiento móvil basado en inclinación
-                // Multiplicamos por sensibilidad y dt. Se usa Math.min/max para limitar.
                 player.vx = Math.min(
                     Math.max(tiltX * TILT_SENSITIVITY * dt, -MAX_HORIZONTAL_VELOCITY), 
                     MAX_HORIZONTAL_VELOCITY
                 );
             }
-
-            // Aplicar DRAG solo si no se está moviendo con teclas (para PC)
             if (player.vx === 0) {
                 player.vx *= DRAG; 
             }
@@ -262,11 +248,11 @@
             player.x += player.vx * dt;
 
             // 2. Movimiento Vertical (Física)
-            player.vy += GRAVITY * dt; // Aplicar gravedad
+            player.vy += GRAVITY * dt; 
             player.y += player.vy * dt;
 
             // 3. Salto/Animación
-            player.isJumping = player.vy < 0; // Se considera saltando cuando sube
+            player.isJumping = player.vy < 0; 
 
             // 4. Bucle en los límites de la pantalla (wrap-around)
             if (player.x < -player.width / 2) {
@@ -277,18 +263,14 @@
             
             // 5. Scroll de la cámara y puntuación
             if (player.y < H / 2) {
-                // Mover todas las plataformas hacia abajo
                 const scrollAmount = H / 2 - player.y;
                 player.y = H / 2;
                 platforms.forEach(p => p.y += scrollAmount);
                 maxPlatformY += scrollAmount;
-                player.maxHeight += scrollAmount; // Aumentar la altura total
-
-                // Actualizar puntuación (simplificada como max-height / 100)
+                player.maxHeight += scrollAmount; 
                 player.score = Math.floor(player.maxHeight / 100);
 
-                // Generar nuevas plataformas mientras haya espacio
-                while (platforms[platforms.length - 1].y > -H / 4) { // Umbral de generación
+                while (platforms[platforms.length - 1].y > -H / 4) { 
                     generateNewPlatform(platforms[platforms.length - 1].y);
                 }
             }
@@ -299,33 +281,27 @@
             }
         }
 
-        /**
-         * Verifica colisiones entre el jugador y las plataformas.
-         */
+        /** Verifica colisiones entre el jugador y las plataformas. */
         function checkCollisions() {
             if (gameOver || !started) return;
             
-            // Solo comprobar si el jugador está cayendo
             if (player.vy > 0) {
                 for (let i = 0; i < platforms.length; i++) {
                     const p = platforms[i];
                     
-                    // Colisión vertical (el jugador cae sobre la plataforma)
                     if (player.x < p.x + PLATFORM_WIDTH &&
                         player.x + player.width > p.x &&
                         player.y + player.height / 2 > p.y &&
                         player.y + player.height / 2 < p.y + PLATFORM_HEIGHT) {
                         
-                        // Si no está muy alto (permite saltos más largos)
                         if (player.y + player.height / 2 < p.y + PLATFORM_HEIGHT / 2) {
                             player.y = p.y - player.height / 2;
-                            player.vy = JUMP_VELOCITY; // Rebotar
+                            player.vy = JUMP_VELOCITY; 
                         }
                     }
                 }
             }
             
-            // Limpiar plataformas fuera de pantalla (para optimizar)
             platforms = platforms.filter(p => p.y < H + 50);
         }
 
@@ -336,19 +312,15 @@
             const minX = 50;
             const maxX = W - PLATFORM_WIDTH - 50;
             
-            // Nueva posición Y (siempre por encima de la última)
             const newY = lastY - (minSpacing + Math.random() * (maxSpacing - minSpacing));
             
-            // Lógica de dificultad (más dispersas mientras subes)
-            let platformRange = W * 0.8; // Rango inicial
+            let platformRange = W * 0.8; 
             const zoneIndex = Math.floor(player.maxHeight / ZONE_HEIGHT);
             
-            // Reducir el rango de aparición para hacerlas más aleatorias
             if (zoneIndex >= 1) {
-                platformRange = W * (0.8 - Math.min(zoneIndex * 0.1, 0.4)); // Más dispersión
+                platformRange = W * (0.8 - Math.min(zoneIndex * 0.1, 0.4)); 
             }
             
-            // Posición X aleatoria, evitando que siempre aparezcan en el centro
             const newX = minX + Math.random() * (maxX - minX);
 
             platforms.push({
@@ -357,22 +329,8 @@
                 type: 'normal'
             });
 
-            // Actualizar la Y más alta generada
             maxPlatformY = newY;
         }
-
-        /** Establece el estado de "GAME OVER". */
-        function endGame() {
-            gameOver = true;
-            started = false; // Detener la física
-            overlayContent.innerHTML = `GAME OVER<br>Puntuación: ${player.score}<br>TOCA PARA REINICIAR`;
-            overlay.style.display = 'flex';
-            
-            // Preparar para el reinicio
-            document.addEventListener('click', restartGame, { once: true });
-            document.addEventListener('touchstart', restartGame, { once: true });
-        }
-
 
         // === FUNCIONES DE DIBUJO Y RENDERIZADO ===
 
@@ -380,40 +338,14 @@
         function drawBackground() {
             const currentHeight = Math.floor(player.maxHeight);
             
-            // Calcular la zona actual y la siguiente (para la transición del gradiente)
             const currentZoneIndex = Math.floor(currentHeight / ZONE_HEIGHT);
-            const nextZoneIndex = Math.min(currentZoneIndex + 1, ZONES.length - 1);
-
             const zoneName = ZONES[currentZoneIndex] || ZONES[ZONES.length - 1];
-            const nextZoneName = ZONES[nextZoneIndex] || ZONES[ZONES.length - 1];
-
             const currentColors = COLORS[zoneName];
-            const nextColors = COLORS[nextZoneName];
 
-            // Factor de interpolación (0 a 1)
-            const progressInZone = (currentHeight % ZONE_HEIGHT) / ZONE_HEIGHT;
-
-            // Simple gradiente vertical
             const gradient = ctx.createLinearGradient(0, 0, 0, H);
             
-            // Lógica de color muy simplificada (usando HSL para una transición más suave)
-            // Se puede hacer más complejo, pero HSL/CSS strings son difíciles de interpolar directamente.
-            // Para este prototipo, se usa la interpolación entre los colores definidos de las zonas.
-            // Nota: Para una transición perfecta, se requeriría una librería de interpolación de colores.
-
-            // Usaremos una mezcla simple aquí
-            let colorTop = currentColors.top;
-            let colorBottom = currentColors.bottom;
-            
-            if (progressInZone > 0 && currentZoneIndex < ZONES.length - 1) {
-                // Si estamos en transición, podríamos simplemente forzar el color de la siguiente zona
-                // en la parte superior del gradiente para un efecto de "aproximación".
-                // En este caso, solo usamos el color de la zona actual:
-                // La magia está en que al scroll, el color sube con la cámara.
-            }
-            
-            gradient.addColorStop(0, colorTop); 
-            gradient.addColorStop(1, colorBottom);
+            gradient.addColorStop(0, currentColors.top); 
+            gradient.addColorStop(1, currentColors.bottom);
 
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, W, H);
@@ -437,7 +369,7 @@
                 // Gusano estirado al subir
                 img = wormImageStretched;
                 drawW = PLAYER_SIZE; 
-                drawH = PLAYER_SIZE * 1.5; // Un poco más alto
+                drawH = PLAYER_SIZE * 1.5; 
             } else {
                 // Gusano enrollado (cayendo o esperando)
                 img = wormImageEnrolled;
@@ -458,7 +390,7 @@
 
         /** Dibuja todas las plataformas. */
         function drawPlatforms() {
-            ctx.fillStyle = '#171717'; // Color oscuro para las plataformas
+            ctx.fillStyle = '#171717'; 
             platforms.forEach(p => {
                 ctx.fillRect(p.x, p.y, PLATFORM_WIDTH, PLATFORM_HEIGHT);
             });
@@ -469,29 +401,39 @@
 
         /** Bucle principal del juego (Game Loop). */
         function gameLoop(currentTime) {
-            // Calcular Delta Time (dt) en segundos
             deltaTime = (currentTime - lastTime) / 1000; 
             lastTime = currentTime;
 
-            // Limpiar canvas y dibujar fondo
             drawBackground();
 
-            // Solo actualizar si el juego ha empezado Y no ha terminado
             if (started && !gameOver) {
-                // Actualizar física, posiciones, scroll, y colisiones
                 updatePlayer(deltaTime);
                 checkCollisions();
             }
             
-            // Dibujar elementos del juego
             drawPlatforms();
             drawPlayer();
 
-            // Continuar el bucle
             requestAnimationFrame(gameLoop);
         }
 
         // === INICIO ===
+        function init() {
+            setupCanvas();
+            window.addEventListener('resize', setupCanvas);
+            
+            // Listeners más robustos para móvil (touchstart) y PC (mousedown)
+            document.addEventListener('mousedown', handleInput);
+            document.addEventListener('touchstart', handleInput); 
+            
+            // Eventos de control de PC
+            document.addEventListener('keydown', handleKeyDown);
+            document.addEventListener('keyup', handleKeyUp);
+
+            // Iniciar el bucle de juego
+            requestAnimationFrame(gameLoop);
+        }
+        
         init();
 
     </script>
