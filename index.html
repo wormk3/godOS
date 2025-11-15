@@ -1,650 +1,187 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, viewport-fit=cover, user-scalable=no"
-  />
-  <title>Ascensión Infinita</title>
-  <style>
-    html,
-    body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-    }
-
-    body {
-      background: #05020b;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-        sans-serif;
-      touch-action: none;
-    }
-
-    canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
-
-    #overlay {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      color: #ffffff;
-      text-align: center;
-      z-index: 10;
-      background: radial-gradient(
-        circle at center,
-        rgba(40, 24, 80, 0.7),
-        rgba(0, 0, 0, 0.95)
-      );
-    }
-
-    #overlay-content {
-      padding: 18px 26px;
-      border-radius: 16px;
-      background: rgba(12, 8, 30, 0.9);
-      border: 1px solid rgba(190, 160, 255, 0.6);
-      box-shadow: 0 0 28px rgba(130, 90, 255, 0.7);
-    }
-
-    #overlay-content h1 {
-      margin: 0 0 6px;
-      font-size: 22px;
-      letter-spacing: 2px;
-    }
-
-    #overlay-content p {
-      margin: 4px 0;
-      font-size: 13px;
-      opacity: 0.8;
-    }
-
-    #overlay-content .tap {
-      margin-top: 10px;
-      font-size: 14px;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      color: #ffdd88;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gusano Saltarín - Como Doodle Jump</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        canvas {
+            border: 1px solid #000;
+            background-color: #fff;
+        }
+    </style>
 </head>
 <body>
-  <canvas id="game"></canvas>
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
 
-  <div id="overlay">
-    <div id="overlay-content">
-      <h1>ASCENSIÓN INFINITA</h1>
-      <p>Rebota en plataformas y sube lo más alto posible.</p>
-      <p>PC: Usa las flechas ← →</p>
-      <p>Móvil: Toca el lado izquierdo o derecho de la pantalla.</p>
-      <div class="tap">TOCA PARA EMPEZAR</div>
-    </div>
-  </div>
+        // Configuración del juego
+        const GRAVITY = 0.5;
+        const JUMP_SPEED = -15;
+        const PLATFORM_SPEED = 2;
+        const PLATFORM_WIDTH = 80;
+        const PLATFORM_HEIGHT = 10;
+        const WORM_SIZE = 20; // Tamaño cuando enrollado (círculo)
 
-  <script>
-    // ---------- Utilidad ----------
-    const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+        // Variables del gusano
+        let wormX = canvas.width / 2;
+        let wormY = canvas.height / 2;
+        let wormVelocityY = 0;
+        let wormVelocityX = 0;
+        let isUncoiled = false; // Estado: enrollado o desenrollado
+        let uncoilTimer = 0; // Temporizador para volver a enrollarse
 
-    // ---------- Input ----------
-    class Input {
-      constructor() {
-        this.horizontal = 0; // -1 izq, 1 der
-        this.keys = new Set();
-      }
+        // Plataformas
+        let platforms = [];
+        let score = 0;
+        let gameOver = false;
 
-      init() {
-        // Teclado
-        window.addEventListener("keydown", (e) => {
-          this.keys.add(e.key);
-          this.updateFromKeyboard();
+        // Generar plataformas iniciales
+        function generatePlatforms() {
+            platforms = [];
+            for (let i = 0; i < 10; i++) {
+                platforms.push({
+                    x: Math.random() * (canvas.width - PLATFORM_WIDTH),
+                    y: canvas.height - (i * 80) - 50
+                });
+            }
+        }
+
+        // Dibujar el gusano
+        function drawWorm() {
+            ctx.fillStyle = '#00ff00'; // Color verde para el gusano
+            if (isUncoiled) {
+                // Desenrollado: dibuja como una línea vertical
+                ctx.fillRect(wormX - 5, wormY - WORM_SIZE * 2, 10, WORM_SIZE * 4);
+            } else {
+                // Enrollado: dibuja como un círculo
+                ctx.beginPath();
+                ctx.arc(wormX, wormY, WORM_SIZE, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Dibujar plataformas
+        function drawPlatforms() {
+            ctx.fillStyle = '#0000ff'; // Azul para plataformas
+            platforms.forEach(platform => {
+                ctx.fillRect(platform.x, platform.y, PLATFORM_WIDTH, PLATFORM_HEIGHT);
+            });
+        }
+
+        // Actualizar posición del gusano
+        function updateWorm() {
+            wormVelocityY += GRAVITY;
+            wormY += wormVelocityY;
+            wormX += wormVelocityX;
+
+            // Mantener dentro de los bordes laterales
+            if (wormX < 0) wormX = 0;
+            if (wormX > canvas.width - WORM_SIZE * 2) wormX = canvas.width - WORM_SIZE * 2;
+
+            // Caída por debajo de la pantalla = game over
+            if (wormY > canvas.height) {
+                gameOver = true;
+            }
+
+            // Temporizador para enrollarse de nuevo
+            if (isUncoiled) {
+                uncoilTimer--;
+                if (uncoilTimer <= 0) {
+                    isUncoiled = false;
+                }
+            }
+        }
+
+        // Mover plataformas hacia abajo
+        function updatePlatforms() {
+            if (wormVelocityY < 0) { // Solo mover si el gusano está subiendo
+                platforms.forEach(platform => {
+                    platform.y += -wormVelocityY / 5; // Ajuste de velocidad
+                });
+                score += Math.abs(wormVelocityY / 5);
+            }
+
+            // Eliminar plataformas fuera de pantalla y generar nuevas
+            platforms = platforms.filter(platform => platform.y < canvas.height);
+            while (platforms.length < 10) {
+                const lastY = platforms.length > 0 ? platforms[platforms.length - 1].y : 0;
+                platforms.push({
+                    x: Math.random() * (canvas.width - PLATFORM_WIDTH),
+                    y: lastY - (Math.random() * 50 + 50)
+                });
+            }
+        }
+
+        // Verificar colisiones con plataformas
+        function checkCollisions() {
+            if (wormVelocityY > 0) { // Solo colisionar cuando cayendo
+                platforms.forEach(platform => {
+                    if (
+                        wormX + WORM_SIZE > platform.x &&
+                        wormX < platform.x + PLATFORM_WIDTH &&
+                        wormY + WORM_SIZE > platform.y &&
+                        wormY + WORM_SIZE < platform.y + PLATFORM_HEIGHT + 5
+                    ) {
+                        wormVelocityY = JUMP_SPEED;
+                        isUncoiled = true; // Desenrollar al saltar
+                        uncoilTimer = 30; // Tiempo desenrollado (frames)
+                    }
+                });
+            }
+        }
+
+        // Dibujar puntuación
+        function drawScore() {
+            ctx.fillStyle = '#000';
+            ctx.font = '20px Arial';
+            ctx.fillText(`Puntuación: ${Math.floor(score)}`, 10, 30);
+        }
+
+        // Bucle principal del juego
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (!gameOver) {
+                updateWorm();
+                updatePlatforms();
+                checkCollisions();
+                drawPlatforms();
+                drawWorm();
+                drawScore();
+            } else {
+                ctx.fillStyle = '#ff0000';
+                ctx.font = '30px Arial';
+                ctx.fillText('Game Over', canvas.width / 2 - 100, canvas.height / 2);
+                ctx.fillText(`Puntuación: ${Math.floor(score)}`, canvas.width / 2 - 120, canvas.height / 2 + 40);
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Controles del teclado
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') wormVelocityX = -5;
+            if (e.key === 'ArrowRight') wormVelocityX = 5;
         });
 
-        window.addEventListener("keyup", (e) => {
-          this.keys.delete(e.key);
-          this.updateFromKeyboard();
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') wormVelocityX = 0;
         });
 
-        // Táctil: lado izq / der
-        const handleTouch = (ev) => {
-          if (!ev.touches || ev.touches.length === 0) {
-            this.horizontal = 0;
-            return;
-          }
-          const touch = ev.touches[0];
-          const mid = window.innerWidth / 2;
-          this.horizontal = touch.clientX < mid ? -1 : 1;
-        };
-
-        window.addEventListener(
-          "touchstart",
-          (ev) => {
-            ev.preventDefault();
-            handleTouch(ev);
-          },
-          { passive: false }
-        );
-        window.addEventListener(
-          "touchmove",
-          (ev) => {
-            ev.preventDefault();
-            handleTouch(ev);
-          },
-          { passive: false }
-        );
-        window.addEventListener("touchend", () => {
-          this.horizontal = 0;
-        });
-        window.addEventListener("touchcancel", () => {
-          this.horizontal = 0;
-        });
-      }
-
-      updateFromKeyboard() {
-        let h = 0;
-        if (this.keys.has("ArrowLeft") || this.keys.has("a")) h -= 1;
-        if (this.keys.has("ArrowRight") || this.keys.has("d")) h += 1;
-        this.horizontal = clamp(h, -1, 1);
-      }
-
-      getHorizontal() {
-        return this.horizontal;
-      }
-    }
-
-    // ---------- Player (con colisión mejorada) ----------
-    class Player {
-      constructor(game) {
-        this.game = game;
-        this.radius = 16;
-        this.reset();
-      }
-
-      reset() {
-        this.x = this.game.width / 2;
-        this.y = this.game.height - 140;
-        this.vx = 0;
-        this.vy = 0;
-        this.maxHeight = 0;
-        this.score = 0;
-        this.isJumping = false;
-      }
-
-      handleCollisions(prevY, platforms) {
-        const cfg = this.game.config;
-        if (this.vy <= 0) return; // solo cuando cae
-
-        const prevBottom = prevY + this.radius;
-        const currBottom = this.y + this.radius;
-
-        for (const p of platforms) {
-          const withinX =
-            this.x + this.radius > p.x &&
-            this.x - this.radius < p.x + p.width;
-
-          // El jugador cruzó la parte superior de la plataforma
-          const crossedTop = prevBottom <= p.y && currBottom >= p.y;
-
-          // Un poco de tolerancia vertical para que se sienta sólido
-          const closeEnough = currBottom <= p.y + p.height + 6;
-
-          if (withinX && crossedTop && closeEnough) {
-            this.y = p.y - this.radius;
-            this.vy = cfg.JUMP_VELOCITY;
-            this.isJumping = true;
-            break;
-          }
-        }
-      }
-
-      update(dt, platforms) {
-        const cfg = this.game.config;
-
-        const prevY = this.y; // guardamos posición anterior
-
-        // Física vertical
-        this.vy += cfg.GRAVITY * dt;
-        this.y += this.vy * dt;
-
-        // Input horizontal
-        const input = this.game.input.getHorizontal();
-        this.vx += input * cfg.HORIZONTAL_ACCEL * dt;
-        this.vx = clamp(this.vx, -cfg.MAX_VX, cfg.MAX_VX);
-
-        if (Math.abs(input) < 0.05) {
-          this.vx *= cfg.HORIZONTAL_DAMPING;
-        }
-
-        this.x += this.vx * dt;
-
-        // Wrap
-        if (this.x < -this.radius) this.x = this.game.width + this.radius;
-        if (this.x > this.game.width + this.radius) this.x = -this.radius;
-
-        this.isJumping = this.vy < 0;
-
-        // Altura / score
-        const theoreticalHeight = this.game.spawnBaseY - this.y;
-        if (theoreticalHeight > this.maxHeight) {
-          this.maxHeight = theoreticalHeight;
-          this.score = Math.floor(this.maxHeight / 100);
-        }
-
-        // Colisiones
-        this.handleCollisions(prevY, platforms);
-      }
-
-      draw(ctx) {
-        ctx.save();
-        ctx.translate(this.x, this.y);
-
-        const r = this.radius;
-
-        // Halo
-        const glow = ctx.createRadialGradient(
-          0,
-          0,
-          r * 0.4,
-          0,
-          0,
-          r * 2.1
-        );
-        glow.addColorStop(0, "rgba(214, 182, 255, 0.9)");
-        glow.addColorStop(1, "rgba(10, 3, 35, 0)");
-        ctx.fillStyle = glow;
-        ctx.beginPath();
-        ctx.arc(0, 0, r * 2.1, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Cuerpo
-        const core = ctx.createRadialGradient(
-          -r * 0.25,
-          -r * 0.25,
-          r * 0.3,
-          0,
-          0,
-          r
-        );
-        core.addColorStop(0, "#fff7d0");
-        core.addColorStop(0.45, "#ffd86f");
-        core.addColorStop(1, "#ff9c5a");
-        ctx.fillStyle = core;
-        ctx.beginPath();
-        ctx.arc(0, 0, r, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = "rgba(30, 18, 50, 0.9)";
-        ctx.stroke();
-
-        // Carita
-        ctx.fillStyle = "#ffffff";
-        ctx.beginPath();
-        ctx.arc(-r * 0.35, -r * 0.18, 2.3, 0, Math.PI * 2);
-        ctx.arc(r * 0.35, -r * 0.18, 2.3, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = "#24213a";
-        ctx.beginPath();
-        ctx.arc(-r * 0.35, -r * 0.18, 1.1, 0, Math.PI * 2);
-        ctx.arc(r * 0.35, -r * 0.18, 1.1, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.strokeStyle = "#4d2640";
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        if (this.isJumping) {
-          ctx.arc(0, r * 0.08, 4.5, 0, Math.PI, false);
-        } else if (this.vy > 600) {
-          ctx.moveTo(-4, r * 0.1);
-          ctx.lineTo(4, r * 0.1);
-        } else {
-          ctx.arc(0, r * 0.1, 4, 0, Math.PI);
-        }
-        ctx.stroke();
-
-        ctx.restore();
-      }
-    }
-
-    // ---------- Plataforma ----------
-    class Platform {
-      constructor(x, y, width, height) {
-        this.x = x;
-        this.y = y;
-        this.width = width;
-        this.height = height;
-      }
-
-      draw(ctx) {
-        ctx.save();
-
-        // Sombra
-        ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
-        ctx.fillRect(
-          this.x,
-          this.y + this.height * 0.4,
-          this.width,
-          this.height * 0.7
-        );
-
-        // Cuerpo
-        const grad = ctx.createLinearGradient(
-          this.x,
-          this.y,
-          this.x,
-          this.y + this.height
-        );
-        grad.addColorStop(0, "#E4D3FF");
-        grad.addColorStop(1, "#8B5DFF");
-        ctx.fillStyle = grad;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-
-        // Borde neón
-        ctx.strokeStyle = "#FFCFFF";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(this.x + 0.5, this.y + 0.5, this.width - 1, this.height - 1);
-
-        ctx.restore();
-      }
-    }
-
-    // ---------- Estrellas ----------
-    class StarField {
-      constructor(game, count = 80) {
-        this.game = game;
-        this.count = count;
-        this.stars = [];
-        this.init();
-      }
-
-      init() {
-        this.stars = [];
-        for (let i = 0; i < this.count; i++) {
-          this.stars.push({
-            x: Math.random() * this.game.width,
-            y: Math.random() * this.game.height,
-            radius: Math.random() * 1.4 + 0.3,
-            alpha: Math.random() * 0.8 + 0.2
-          });
-        }
-      }
-
-      scroll(dy) {
-        for (const s of this.stars) {
-          s.y += dy * 0.5;
-          if (s.y > this.game.height) {
-            s.y -= this.game.height;
-          }
-        }
-      }
-
-      draw(ctx) {
-        ctx.save();
-        for (const s of this.stars) {
-          ctx.fillStyle = `rgba(255,255,255,${s.alpha})`;
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.restore();
-      }
-    }
-
-    // ---------- Juego ----------
-    class Game {
-      constructor(canvas) {
-        this.canvas = canvas;
-        this.ctx = canvas.getContext("2d");
-
-        this.dpr = window.devicePixelRatio || 1;
-        this.updateSize();
-
-        this.config = {
-          GRAVITY: 1600,
-          JUMP_VELOCITY: -850,
-          MAX_VX: 300,
-          HORIZONTAL_ACCEL: 1300,
-          HORIZONTAL_DAMPING: 0.9,
-          PLATFORM_WIDTH: 70,
-          PLATFORM_HEIGHT: 12,
-          PLATFORM_COUNT: 18
-        };
-
-        this.state = "START"; // START | RUNNING | GAME_OVER
-
-        this.input = new Input();
-        this.input.init();
-
-        this.player = new Player(this);
-        this.platforms = [];
-        this.spawnBaseY = this.height - 100;
-        this.maxPlatformY = this.spawnBaseY;
-
-        this.starField = new StarField(this, 90);
-
-        this.lastTime = 0;
-
-        this.setupPlatforms();
-        this.attachEvents();
-      }
-
-      updateSize() {
-        const docEl = document.documentElement;
-        this.width = docEl.clientWidth || window.innerWidth;
-        this.height = docEl.clientHeight || window.innerHeight;
-
-        this.canvas.width = this.width * this.dpr;
-        this.canvas.height = this.height * this.dpr;
-        this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-      }
-
-      setupPlatforms() {
-        this.platforms = [];
-        this.maxPlatformY = this.spawnBaseY;
-
-        const baseX = this.width / 2 - this.config.PLATFORM_WIDTH / 2;
-        this.platforms.push(
-          new Platform(
-            baseX,
-            this.spawnBaseY,
-            this.config.PLATFORM_WIDTH,
-            this.config.PLATFORM_HEIGHT
-          )
-        );
-
-        for (let i = 0; i < this.config.PLATFORM_COUNT; i++) {
-          this.spawnPlatform();
-        }
-      }
-
-      spawnPlatform() {
-        const minSp = this.height * 0.08;
-        const maxSp = this.height * 0.13;
-        const spacing = minSp + Math.random() * (maxSp - minSp);
-
-        const y = this.maxPlatformY - spacing;
-        const margin = 40;
-        const x =
-          margin +
-          Math.random() *
-            (this.width - this.config.PLATFORM_WIDTH - margin * 2);
-
-        this.platforms.push(
-          new Platform(
-            x,
-            y,
-            this.config.PLATFORM_WIDTH,
-            this.config.PLATFORM_HEIGHT
-          )
-        );
-        this.maxPlatformY = y;
-      }
-
-      attachEvents() {
-        window.addEventListener("resize", () => {
-          this.updateSize();
-        });
-
-        const overlay = document.getElementById("overlay");
-        const startHandler = (ev) => {
-          ev.preventDefault();
-          if (this.state === "START") {
-            this.start();
-          } else if (this.state === "GAME_OVER") {
-            this.restart();
-          }
-        };
-        overlay.addEventListener("click", startHandler);
-        overlay.addEventListener("touchstart", startHandler, {
-          passive: false
-        });
-      }
-
-      start() {
-        this.state = "RUNNING";
-        document.getElementById("overlay").style.display = "none";
-      }
-
-      restart() {
-        this.player.reset();
-        this.spawnBaseY = this.height - 100;
-        this.starField.init();
-        this.setupPlatforms();
-        this.state = "RUNNING";
-
-        const ov = document.getElementById("overlay-content");
-        ov.innerHTML = `
-          <h1>ASCENSIÓN INFINITA</h1>
-          <p>Rebota en plataformas y sube lo más alto posible.</p>
-          <p>PC: Usa las flechas ← →</p>
-          <p>Móvil: Toca el lado izquierdo o derecho de la pantalla.</p>
-          <div class="tap">TOCA PARA REINICIAR</div>
-        `;
-        document.getElementById("overlay").style.display = "none";
-      }
-
-      gameOver() {
-        this.state = "GAME_OVER";
-        const overlay = document.getElementById("overlay");
-        const box = document.getElementById("overlay-content");
-        box.innerHTML = `
-          <h1>GAME OVER</h1>
-          <p>Altura alcanzada: ${this.player.score} m</p>
-          <div class="tap">TOCA PARA REINTENTAR</div>
-        `;
-        overlay.style.display = "flex";
-      }
-
-      update(dt) {
-        if (this.state !== "RUNNING") return;
-
-        this.player.update(dt, this.platforms);
-
-        // Cámara
-        if (this.player.y < this.height * 0.4) {
-          const dy = this.height * 0.4 - this.player.y;
-          this.player.y = this.height * 0.4;
-
-          for (const p of this.platforms) p.y += dy;
-          this.spawnBaseY += dy;
-          this.maxPlatformY += dy;
-
-          this.starField.scroll(dy);
-
-          this.platforms = this.platforms.filter(
-            (p) => p.y < this.height + 80
-          );
-
-          while (this.maxPlatformY > -this.height * 0.25) {
-            this.spawnPlatform();
-          }
-        }
-
-        // Caída
-        if (this.player.y - this.player.radius > this.height + 80) {
-          this.gameOver();
-        }
-      }
-
-      drawBackground() {
-        const ctx = this.ctx;
-        const h = this.player.maxHeight;
-        const t = clamp(h / 25000, 0, 1);
-
-        const top = `hsl(${250 - t * 40}, 65%, ${18 + t * 8}%)`;
-        const mid = `hsl(${220 - t * 10}, 70%, ${22 + t * 18}%)`;
-        const bottom = `hsl(${195}, 75%, ${12 + t * 18}%)`;
-
-        const grad = ctx.createLinearGradient(0, 0, 0, this.height);
-        grad.addColorStop(0, top);
-        grad.addColorStop(0.5, mid);
-        grad.addColorStop(1, bottom);
-
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, this.width, this.height);
-
-        ctx.fillStyle = "rgba(255,255,255,0.04)";
-        for (let i = 0; i < 3; i++) {
-          const y =
-            (this.height / 3) * i +
-            ((h * 0.01 * (i + 1)) % this.height);
-          ctx.beginPath();
-          ctx.ellipse(
-            this.width / 2,
-            y,
-            this.width * 0.8,
-            this.height * 0.22,
-            0,
-            0,
-            Math.PI * 2
-          );
-          ctx.fill();
-        }
-
-        this.starField.draw(ctx);
-      }
-
-      drawHud() {
-        const ctx = this.ctx;
-        ctx.save();
-        ctx.fillStyle = "rgba(255,255,255,0.9)";
-        ctx.font = "16px system-ui";
-        ctx.textAlign = "left";
-        ctx.fillText(`Altura: ${this.player.score} m`, 12, 26);
-        ctx.restore();
-      }
-
-      draw() {
-        this.drawBackground();
-        for (const p of this.platforms) p.draw(this.ctx);
-        this.player.draw(this.ctx);
-        this.drawHud();
-      }
-
-      loop(timestamp) {
-        if (!this.lastTime) this.lastTime = timestamp;
-        let dt = (timestamp - this.lastTime) / 1000;
-        this.lastTime = timestamp;
-
-        if (dt > 0.035) dt = 0.035;
-
-        this.update(dt);
-        this.draw();
-
-        requestAnimationFrame(this.loop.bind(this));
-      }
-    }
-
-    const canvas = document.getElementById("game");
-    const game = new Game(canvas);
-    requestAnimationFrame(game.loop.bind(game));
-  </script>
+        // Iniciar el juego
+        generatePlatforms();
+        gameLoop();
+    </script>
 </body>
 </html>
