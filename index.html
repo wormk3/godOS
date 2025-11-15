@@ -35,7 +35,7 @@
         }
         #overlay-content {
             padding: 20px;
-            background-color: rgba(0, 0, 0, 0.7); /* Hacemos el fondo del texto más oscuro */
+            background-color: rgba(0, 0, 0, 0.7); 
             border-radius: 10px;
         }
     </style>
@@ -83,7 +83,7 @@
             vx: 0,
             vy: 0,
             width: PLAYER_SIZE,
-            height: PLAYER_SIZE,
+            height: PLAYER_SIZE * 1.5, // Altura máxima estirado
             isJumping: false,
             maxHeight: 0,
             score: 0
@@ -107,6 +107,7 @@
         let maxPlatformY = 0;
 
         // Sprite del Gusano (SVG Base64)
+        // Usamos un color amarillo (#FFDA9F) para que contraste
         const WORM_SVG_ENROLLED = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCIgdmlld0JveD0iMCAwIDMwIDMwIj48Y2lyY2xlIGN4PSIxNSIgY3k9IjE1IiByPSIxMiIgc3R5bGU9ImZpbGw6I2ZmZGE5ZjtzdHJva2U6IzE3MTcxNzsiIHN0cm9rZS13aWR0aD0iMiIvPjwvZ3N2Zz4=';
         const WORM_SVG_STRETCHED = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDMwIDQwIj48ZWxsaXBzZSBjeD0iMTUiIGN5PSIyMCIgcng9IjEyIiByeT0iMTgiIHN0eWxlPSJmaWxsOiNmZmRhOWY7c3Ryb2tlOiMxNzE3MTc7IiBzdHJva2Utd2lkdGg9IjIiLz48L2VsbGlwc2U+PC9zdmc+';
         
@@ -154,7 +155,6 @@
 
         /** Inicia el juego (quitando el overlay y activando sensores). */
         function startGame() {
-            console.log("Juego Iniciado.");
             started = true;
             gameOver = false;
             overlay.style.display = 'none';
@@ -168,7 +168,6 @@
 
         /** Reinicia todas las variables del juego. */
         function restartGame() {
-            console.log("Juego Reiniciado.");
             setupCanvas();
             gameOver = false;
             started = true; 
@@ -189,7 +188,7 @@
         
         /** Unifica el manejo de click/toque para inicio y reinicio. */
         function handleInput(event) {
-            console.log("Input event received. Started:", started, "Game Over:", gameOver); 
+            // console.log("Input event received. Started:", started, "Game Over:", gameOver); 
 
             // Prevenir comportamientos por defecto (zoom, scroll)
             event.preventDefault(); 
@@ -286,16 +285,20 @@
             if (gameOver || !started) return;
             
             if (player.vy > 0) {
+                // Altura real del personaje al tocar
+                const playerBottom = player.y + (player.isJumping ? player.height / 3 : player.height / 2);
+
                 for (let i = 0; i < platforms.length; i++) {
                     const p = platforms[i];
                     
                     if (player.x < p.x + PLATFORM_WIDTH &&
                         player.x + player.width > p.x &&
-                        player.y + player.height / 2 > p.y &&
-                        player.y + player.height / 2 < p.y + PLATFORM_HEIGHT) {
+                        playerBottom > p.y &&
+                        playerBottom < p.y + PLATFORM_HEIGHT) {
                         
-                        if (player.y + player.height / 2 < p.y + PLATFORM_HEIGHT / 2) {
-                            player.y = p.y - player.height / 2;
+                        // Solo rebotar si está cayendo y la colisión es con la parte superior
+                        if (player.vy > 0 && playerBottom < p.y + PLATFORM_HEIGHT / 2) {
+                            player.y = p.y - (player.isJumping ? player.height / 3 : player.height / 2);
                             player.vy = JUMP_VELOCITY; 
                         }
                     }
@@ -369,16 +372,24 @@
                 // Gusano estirado al subir
                 img = wormImageStretched;
                 drawW = PLAYER_SIZE; 
-                drawH = PLAYER_SIZE * 1.5; 
+                drawH = PLAYER_SIZE * 1.5; // Alto estirado
             } else {
                 // Gusano enrollado (cayendo o esperando)
                 img = wormImageEnrolled;
                 drawW = PLAYER_SIZE * 1.2;
-                drawH = PLAYER_SIZE * 1.2;
+                drawH = PLAYER_SIZE * 1.2; // Alto enrollado
             }
 
             // Dibujar la imagen centrada
-            ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+            if (img.complete) { // Solo dibuja si la imagen ha cargado
+                ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+            } else {
+                // Mecanismo de respaldo: dibujar un círculo amarillo si la imagen no carga
+                ctx.fillStyle = '#FFDA9F'; 
+                ctx.beginPath();
+                ctx.arc(0, 0, PLAYER_SIZE / 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
             ctx.restore();
             
             // Dibuja el score
@@ -418,20 +429,42 @@
         }
 
         // === INICIO ===
-        function init() {
-            setupCanvas();
-            window.addEventListener('resize', setupCanvas);
-            
-            // Listeners más robustos para móvil (touchstart) y PC (mousedown)
-            document.addEventListener('mousedown', handleInput);
-            document.addEventListener('touchstart', handleInput); 
-            
-            // Eventos de control de PC
-            document.addEventListener('keydown', handleKeyDown);
-            document.addEventListener('keyup', handleKeyUp);
+        
+        /** Espera que todos los recursos necesarios carguen antes de iniciar. */
+        function loadResources() {
+            const imagesToLoad = [wormImageEnrolled, wormImageStretched];
+            const promises = imagesToLoad.map(img => new Promise((resolve) => {
+                if (img.complete) {
+                    resolve();
+                } else {
+                    img.onload = resolve;
+                    // Manejar error en la carga de la imagen, si es necesario
+                    img.onerror = () => {
+                         console.error("Error al cargar la imagen:", img.src);
+                         resolve(); // Resolver de todas formas para no bloquear el juego
+                    };
+                }
+            }));
 
-            // Iniciar el bucle de juego
-            requestAnimationFrame(gameLoop);
+            return Promise.all(promises);
+        }
+
+        function init() {
+            // 1. Cargar recursos (imágenes)
+            loadResources().then(() => {
+                // 2. Setup después de la carga
+                setupCanvas();
+                window.addEventListener('resize', setupCanvas);
+                
+                // 3. Listeners
+                document.addEventListener('mousedown', handleInput);
+                document.addEventListener('touchstart', handleInput); 
+                document.addEventListener('keydown', handleKeyDown);
+                document.addEventListener('keyup', handleKeyUp);
+
+                // 4. Iniciar el bucle de juego
+                requestAnimationFrame(gameLoop);
+            });
         }
         
         init();
