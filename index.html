@@ -1,457 +1,408 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>ASCENSIÓN INFINITA</title>
-    <style>
-        /* Pantalla completa en móvil, sin scroll */
-        body {
-            margin: 0;
-            overflow: hidden;
-            touch-action: none; /* desactiva zoom/scroll gestual */
-            background-color: #000;
-            font-family: Arial, sans-serif;
-        }
-        canvas {
-            display: block;
-        }
-        #overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex; /* visible al inicio */
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-size: 24px;
-            font-weight: bold;
-            text-align: center;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
-            z-index: 10;
-            cursor: pointer;
-        }
-        #overlay-content {
-            padding: 20px;
-            background-color: rgba(0, 0, 0, 0.7);
-            border-radius: 10px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>ASCENSIÓN INFINITA</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      touch-action: none;
+      background-color: #000;
+      font-family: Arial, sans-serif;
+    }
+    canvas {
+      display: block;
+    }
+    #overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      font-size: 24px;
+      font-weight: bold;
+      text-align: center;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+      z-index: 10;
+      cursor: pointer;
+    }
+    #overlay-content {
+      padding: 20px;
+      background-color: rgba(0, 0, 0, 0.7);
+      border-radius: 10px;
+    }
+  </style>
 </head>
 <body>
 
-    <canvas id="gameCanvas"></canvas>
-    <div id="overlay">
-        <div id="overlay-content">TOCA PARA EMPEZAR</div>
-    </div>
+  <canvas id="gameCanvas"></canvas>
+  <div id="overlay">
+    <div id="overlay-content">TOCA PARA EMPEZAR</div>
+  </div>
 
-    <script>
-        // === VARIABLES GLOBALES ===
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const overlay = document.getElementById('overlay');
+    const overlayContent = document.getElementById('overlay-content');
 
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const overlay = document.getElementById('overlay');
-        const overlayContent = document.getElementById('overlay-content');
+    let started = false;
+    let gameOver = false;
+    let lastTime = 0;
+    let deltaTime = 0;
 
-        // Estado del juego
-        let started = false;
-        let gameOver = false;
-        let lastTime = 0;
-        let deltaTime = 0;
+    let W, H;
 
-        // Tamaño pantalla
-        let W, H;
+    const ZONE_HEIGHT = 10000;
+    const COLORS = {
+      'Jardín':    { top: 'hsl(120, 50%, 40%)', bottom: 'hsl(60, 50%, 50%)' },
+      'Cielo':     { top: 'hsl(200, 70%, 70%)', bottom: 'hsl(180, 50%, 60%)' },
+      'Atmósfera': { top: 'hsl(240, 50%, 50%)', bottom: 'hsl(200, 70%, 70%)' },
+      'Espacio':   { top: 'hsl(270, 40%, 30%)', bottom: 'hsl(240, 50%, 50%)' },
+      'Neon':      { top: 'hsl(300, 80%, 60%)', bottom: 'hsl(0, 80%, 60%)'   }
+    };
+    const ZONES = Object.keys(COLORS);
 
-        // Zonas y colores (por altura acumulada)
-        const ZONE_HEIGHT = 10000;
-        const COLORS = {
-            'Jardín':    { top: 'hsl(120, 50%, 40%)', bottom: 'hsl(60, 50%, 50%)' },
-            'Cielo':     { top: 'hsl(200, 70%, 70%)', bottom: 'hsl(180, 50%, 60%)' },
-            'Atmósfera': { top: 'hsl(240, 50%, 50%)', bottom: 'hsl(200, 70%, 70%)' },
-            'Espacio':   { top: 'hsl(270, 40%, 30%)', bottom: 'hsl(240, 50%, 50%)' },
-            'Neon':      { top: 'hsl(300, 80%, 60%)', bottom: 'hsl(0, 80%, 60%)'   }
-        };
-        const ZONES = Object.keys(COLORS);
+    // Personaje: círculo
+    const PLAYER_RADIUS = 18;
+    let player = {
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      radius: PLAYER_RADIUS,
+      maxHeight: 0,
+      score: 0,
+      isJumping: false
+    };
 
-        // Jugador (forma de "8")
-        const PLAYER_SIZE = 30;
-        let player = {
-            x: 0,
-            y: 0,
-            vx: 0,
-            vy: 0,
-            width: PLAYER_SIZE * 1.4,
-            height: PLAYER_SIZE * 2.4,
-            isJumping: false,
-            maxHeight: 0,
-            score: 0
-        };
+    // Física
+    const GRAVITY = 1500;
+    const JUMP_VELOCITY = -800;
+    const MAX_HORIZONTAL_VELOCITY = 300;
+    const DRAG = 0.98;
 
-        // Física
-        const GRAVITY = 1500;
-        const JUMP_VELOCITY = -800;
-        const MAX_HORIZONTAL_VELOCITY = 300;
-        const DRAG = 0.98;
+    // Control móvil
+    const TILT_SENSITIVITY = 700;
+    let tiltX = 0;
 
-        // Controles móviles (inclinación)
-        const TILT_SENSITIVITY = 700; // más bajo = menos sensible (tipo Doodle Jump)
-        let tiltX = 0;
+    // Plataformas
+    const PLATFORM_COUNT = 15;
+    const PLATFORM_WIDTH = 60;
+    const PLATFORM_HEIGHT = 10;
+    let platforms = [];
+    let maxPlatformY = 0;
 
-        // Plataformas
-        const PLATFORM_COUNT = 15;
-        const PLATFORM_WIDTH = 60;
-        const PLATFORM_HEIGHT = 10;
-        let platforms = [];
-        let maxPlatformY = 0;
+    function setupCanvas() {
+      W = window.innerWidth;
+      H = window.innerHeight;
 
-        // === INICIALIZACIÓN ===
+      // soporte para pantallas retina (más detalle)
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // dibujar en coordenadas "normales"
 
-        function setupCanvas() {
-            W = window.innerWidth;
-            H = window.innerHeight;
-            canvas.width = W;
-            canvas.height = H;
+      player.x = W / 2;
+      player.y = H - 100;
+      player.vx = 0;
+      player.vy = 0;
+      player.maxHeight = 0;
+      player.score = 0;
 
-            // Posición inicial
-            player.x = W / 2;
-            player.y = H - 100;
-            player.vx = 0;
-            player.vy = 0;
-            player.maxHeight = 0;
-            player.score = 0;
+      generateInitialPlatforms();
+    }
 
-            generateInitialPlatforms();
+    function generateInitialPlatforms() {
+      platforms = [];
+      maxPlatformY = H;
+
+      platforms.push({
+        x: W / 2 - PLATFORM_WIDTH / 2,
+        y: H - 50,
+        type: 'normal'
+      });
+
+      for (let i = 0; i < PLATFORM_COUNT; i++) {
+        generateNewPlatform(maxPlatformY);
+      }
+    }
+
+    function startGame() {
+      started = true;
+      gameOver = false;
+      overlay.style.display = 'none';
+
+      if ('DeviceMotionEvent' in window) {
+        window.addEventListener('devicemotion', handleTilt, false);
+      }
+
+      player.vy = JUMP_VELOCITY;
+      player.isJumping = true;
+    }
+
+    function restartGame() {
+      setupCanvas();
+      gameOver = false;
+      started = true;
+      overlay.style.display = 'none';
+      player.vy = JUMP_VELOCITY;
+      player.isJumping = true;
+    }
+
+    function endGame() {
+      gameOver = true;
+      started = false;
+      overlayContent.innerHTML =
+        `GAME OVER<br>Puntuación: ${player.score}<br>TOCA PARA REINICIAR`;
+      overlay.style.display = 'flex';
+    }
+
+    function handleInput(ev) {
+      ev.preventDefault();
+      if (!started && !gameOver) {
+        startGame();
+      } else if (gameOver) {
+        restartGame();
+      }
+    }
+
+    function handleTilt(event) {
+      // ahora sí: inclinas a la IZQUIERDA → tiltX negativo → se mueve a la izquierda
+      tiltX = event.accelerationIncludingGravity.x;
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === 'ArrowLeft') player.vx = -MAX_HORIZONTAL_VELOCITY;
+      if (event.key === 'ArrowRight') player.vx = MAX_HORIZONTAL_VELOCITY;
+    }
+
+    function handleKeyUp(event) {
+      if (event.key === 'ArrowLeft' && player.vx < 0) player.vx = 0;
+      if (event.key === 'ArrowRight' && player.vx > 0) player.vx = 0;
+    }
+
+    function updatePlayer(dt) {
+      if (gameOver || !started) return;
+
+      // movimiento horizontal por tilt
+      if ('DeviceMotionEvent' in window) {
+        const targetVx = tiltX * TILT_SENSITIVITY;
+        player.vx = Math.max(
+          Math.min(targetVx, MAX_HORIZONTAL_VELOCITY),
+          -MAX_HORIZONTAL_VELOCITY
+        );
+      }
+
+      if (Math.abs(player.vx) < 1) {
+        player.vx *= DRAG;
+      }
+
+      player.x += player.vx * dt;
+
+      // gravedad
+      player.vy += GRAVITY * dt;
+      player.y += player.vy * dt;
+      player.isJumping = player.vy < 0;
+
+      // wrap horizontal
+      if (player.x < -player.radius) player.x = W + player.radius;
+      if (player.x > W + player.radius) player.x = -player.radius;
+
+      // scroll vertical
+      if (player.y < H / 2) {
+        const scrollAmount = H / 2 - player.y;
+        player.y = H / 2;
+        platforms.forEach(p => p.y += scrollAmount);
+        maxPlatformY += scrollAmount;
+        player.maxHeight += scrollAmount;
+        player.score = Math.floor(player.maxHeight / 100);
+
+        while (platforms[platforms.length - 1].y > -H / 4) {
+          generateNewPlatform(platforms[platforms.length - 1].y);
         }
+      }
 
-        function generateInitialPlatforms() {
-            platforms = [];
-            maxPlatformY = H;
+      // cae fuera de la pantalla
+      if (player.y - player.radius > H + 50) {
+        endGame();
+      }
+    }
 
-            // Plataforma de inicio
-            platforms.push({
-                x: W / 2 - PLATFORM_WIDTH / 2,
-                y: H - 50,
-                type: 'normal'
-            });
+    function checkCollisions() {
+      if (gameOver || !started) return;
 
-            for (let i = 0; i < PLATFORM_COUNT; i++) {
-                generateNewPlatform(maxPlatformY);
+      if (player.vy > 0) {
+        const bottom = player.y + player.radius;
+
+        for (const p of platforms) {
+          if (
+            player.x + player.radius > p.x &&
+            player.x - player.radius < p.x + PLATFORM_WIDTH &&
+            bottom > p.y &&
+            bottom < p.y + PLATFORM_HEIGHT
+          ) {
+            if (player.vy > 0 && bottom < p.y + PLATFORM_HEIGHT / 2) {
+              player.y = p.y - player.radius;
+              player.vy = JUMP_VELOCITY;
+              player.isJumping = true;
             }
+          }
         }
+      }
 
-        function startGame() {
-            started = true;
-            gameOver = false;
-            overlay.style.display = 'none';
+      platforms = platforms.filter(p => p.y < H + 50);
+    }
 
-            // Activar sensores de movimiento (móvil)
-            if ('DeviceMotionEvent' in window) {
-                window.addEventListener('devicemotion', handleTilt, false);
-            }
+    function generateNewPlatform(lastY) {
+      const minSpacing = H * 0.08;
+      const maxSpacing = H * 0.12;
+      const minX = 30;
+      const maxX = W - PLATFORM_WIDTH - 30;
 
-            player.vy = JUMP_VELOCITY;
-            player.isJumping = true;
-        }
+      const newY = lastY - (minSpacing + Math.random() * (maxSpacing - minSpacing));
 
-        function restartGame() {
-            setupCanvas();
-            gameOver = false;
-            started = true;
-            overlay.style.display = 'none';
-            player.vy = JUMP_VELOCITY;
-            player.isJumping = true;
-        }
+      let platformRange = W * 0.8;
+      const zoneIndex = Math.floor(player.maxHeight / ZONE_HEIGHT);
+      if (zoneIndex >= 1) {
+        platformRange = W * (0.8 - Math.min(zoneIndex * 0.1, 0.4));
+      }
 
-        function endGame() {
-            gameOver = true;
-            started = false;
-            overlayContent.innerHTML = `GAME OVER<br>Puntuación: ${player.score}<br>TOCA PARA REINICIAR`;
-            overlay.style.display = 'flex';
-        }
+      const newX = minX + Math.random() * (maxX - minX);
 
-        // === ENTRADA (INPUT) ===
+      platforms.push({ x: newX, y: newY, type: 'normal' });
+      maxPlatformY = newY;
+    }
 
-        function handleInput(event) {
-            event.preventDefault();
+    function drawBackground() {
+      const h = Math.floor(player.maxHeight);
+      const zoneIndex = Math.floor(h / ZONE_HEIGHT);
+      const zoneName = ZONES[zoneIndex] || ZONES[ZONES.length - 1];
+      const colors = COLORS[zoneName];
 
-            if (!started && !gameOver) {
-                startGame();
-            } else if (gameOver) {
-                restartGame();
-            }
-        }
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, colors.top);
+      grad.addColorStop(1, colors.bottom);
 
-        function handleTilt(event) {
-            // AHORA: inclinar a la izquierda → tiltX negativo → se mueve a la izquierda
-            tiltX = event.accelerationIncludingGravity.x;
-        }
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
 
-        function handleKeyDown(event) {
-            if (event.key === 'ArrowLeft') {
-                player.vx = -MAX_HORIZONTAL_VELOCITY;
-            } else if (event.key === 'ArrowRight') {
-                player.vx = MAX_HORIZONTAL_VELOCITY;
-            }
-        }
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.font = 'bold 16px Arial';
+      ctx.textAlign = 'right';
+      ctx.fillText(`Zona: ${zoneName}`, W - 10, 22);
+    }
 
-        function handleKeyUp(event) {
-            if (event.key === 'ArrowLeft' && player.vx < 0) {
-                player.vx = 0;
-            } else if (event.key === 'ArrowRight' && player.vx > 0) {
-                player.vx = 0;
-            }
-        }
+    function drawPlayer() {
+      ctx.save();
+      ctx.translate(player.x, player.y);
 
-        // === LÓGICA DEL JUGADOR ===
+      // círculo principal
+      const r = player.radius;
+      const grad = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.3, 0, 0, r);
+      grad.addColorStop(0, '#fff4b8');
+      grad.addColorStop(0.6, '#ffcc55');
+      grad.addColorStop(1, '#ff9944');
 
-        function updatePlayer(dt) {
-            if (gameOver || !started) return;
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fill();
 
-            // 1. Movimiento horizontal (móvil)
-            if ('DeviceMotionEvent' in window) {
-                const targetVx = tiltX * TILT_SENSITIVITY;
-                player.vx = Math.max(
-                    Math.min(targetVx, MAX_HORIZONTAL_VELOCITY),
-                    -MAX_HORIZONTAL_VELOCITY
-                );
-            }
+      ctx.strokeStyle = '#553322';
+      ctx.lineWidth = 2;
+      ctx.stroke();
 
-            // Arrastre ligero si casi no se mueve
-            if (Math.abs(player.vx) < 1) {
-                player.vx *= DRAG;
-            }
+      // ojos
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(-r * 0.3, -r * 0.2, 2.2, 0, Math.PI * 2);
+      ctx.arc( r * 0.3, -r * 0.2, 2.2, 0, Math.PI * 2);
+      ctx.fill();
 
-            player.x += player.vx * dt;
+      // pupilas
+      ctx.fillStyle = '#222222';
+      ctx.beginPath();
+      ctx.arc(-r * 0.3, -r * 0.2, 1.1, 0, Math.PI * 2);
+      ctx.arc( r * 0.3, -r * 0.2, 1.1, 0, Math.PI * 2);
+      ctx.fill();
 
-            // 2. Movimiento vertical (gravedad)
-            player.vy += GRAVITY * dt;
-            player.y += player.vy * dt;
+      // boca según estado
+      ctx.strokeStyle = '#552222';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      if (player.isJumping) {
+        // sonrisa grande al subir
+        ctx.arc(0, r * 0.1, 5, 0, Math.PI, false);
+      } else if (player.vy > 600) {
+        // línea recta al caer rápido
+        ctx.moveTo(-4, r * 0.1);
+        ctx.lineTo( 4, r * 0.1);
+      } else {
+        // sonrisa suave
+        ctx.arc(0, r * 0.12, 4, 0, Math.PI);
+      }
+      ctx.stroke();
 
-            // ¿está saltando (subiendo)?
-            player.isJumping = player.vy < 0;
+      ctx.restore();
 
-            // wrap horizontal
-            if (player.x < -player.width / 2) {
-                player.x = W + player.width / 2;
-            } else if (player.x > W + player.width / 2) {
-                player.x = -player.width / 2;
-            }
+      // HUD
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 20px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText(`Altura: ${player.score}`, 10, 30);
+    }
 
-            // 3. Scroll vertical / cámara
-            if (player.y < H / 2) {
-                const scrollAmount = H / 2 - player.y;
-                player.y = H / 2;
-                platforms.forEach(p => p.y += scrollAmount);
-                maxPlatformY += scrollAmount;
-                player.maxHeight += scrollAmount;
-                player.score = Math.floor(player.maxHeight / 100);
+    function drawPlatforms() {
+      ctx.fillStyle = '#171717';
+      platforms.forEach(p => {
+        ctx.fillRect(p.x, p.y, PLATFORM_WIDTH, PLATFORM_HEIGHT);
+      });
+    }
 
-                // generar más plataformas arriba
-                while (platforms[platforms.length - 1].y > -H / 4) {
-                    generateNewPlatform(platforms[platforms.length - 1].y);
-                }
-            }
+    function gameLoop(time) {
+      deltaTime = (time - lastTime) / 1000;
+      lastTime = time;
 
-            // 4. caer fuera de la pantalla → muerte
-            if (player.y > H + player.height / 2) {
-                endGame();
-            }
-        }
+      drawBackground();
 
-        function checkCollisions() {
-            if (gameOver || !started) return;
+      if (started && !gameOver) {
+        updatePlayer(deltaTime);
+        checkCollisions();
+      }
 
-            if (player.vy > 0) { // solo si está cayendo
-                const playerBottom = player.y + player.height / 2;
+      drawPlatforms();
+      drawPlayer();
 
-                for (let i = 0; i < platforms.length; i++) {
-                    const p = platforms[i];
+      requestAnimationFrame(gameLoop);
+    }
 
-                    if (
-                        player.x - player.width / 2 < p.x + PLATFORM_WIDTH &&
-                        player.x + player.width / 2 > p.x &&
-                        playerBottom > p.y &&
-                        playerBottom < p.y + PLATFORM_HEIGHT
-                    ) {
-                        // colisión con parte superior
-                        if (player.vy > 0 && playerBottom < p.y + PLATFORM_HEIGHT / 2) {
-                            player.y = p.y - player.height / 2;
-                            player.vy = JUMP_VELOCITY;
-                            player.isJumping = true;
-                        }
-                    }
-                }
-            }
+    function loadResources() {
+      return Promise.resolve();
+    }
 
-            // limpiar plataformas muy abajo
-            platforms = platforms.filter(p => p.y < H + 50);
-        }
+    function init() {
+      loadResources().then(() => {
+        setupCanvas();
+        window.addEventListener('resize', setupCanvas);
 
-        // === PLATAFORMAS ===
+        document.addEventListener('mousedown', handleInput);
+        document.addEventListener('touchstart', handleInput, { passive: false });
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keyup', handleKeyUp);
 
-        function generateNewPlatform(lastY) {
-            const minSpacing = H * 0.08;
-            const maxSpacing = H * 0.12;
-            const minX = 50;
-            const maxX = W - PLATFORM_WIDTH - 50;
+        requestAnimationFrame(gameLoop);
+      });
+    }
 
-            const newY = lastY - (minSpacing + Math.random() * (maxSpacing - minSpacing));
-
-            let platformRange = W * 0.8;
-            const zoneIndex = Math.floor(player.maxHeight / ZONE_HEIGHT);
-
-            if (zoneIndex >= 1) {
-                platformRange = W * (0.8 - Math.min(zoneIndex * 0.1, 0.4)); // se vuelven más difíciles
-            }
-
-            const newX = minX + Math.random() * (maxX - minX);
-
-            platforms.push({
-                x: newX,
-                y: newY,
-                type: 'normal'
-            });
-
-            maxPlatformY = newY;
-        }
-
-        // === DIBUJO / RENDER ===
-
-        function drawBackground() {
-            const currentHeight = Math.floor(player.maxHeight);
-            const currentZoneIndex = Math.floor(currentHeight / ZONE_HEIGHT);
-            const zoneName = ZONES[currentZoneIndex] || ZONES[ZONES.length - 1];
-            const currentColors = COLORS[zoneName];
-
-            const gradient = ctx.createLinearGradient(0, 0, 0, H);
-            gradient.addColorStop(0, currentColors.top);
-            gradient.addColorStop(1, currentColors.bottom);
-
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, W, H);
-
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-            ctx.font = 'bold 16px Arial';
-            ctx.textAlign = 'right';
-            ctx.fillText(`Zona: ${zoneName}`, W - 10, 22);
-        }
-
-        // Personaje como un "8" simple
-        function drawPlayer() {
-            ctx.save();
-            ctx.translate(player.x, player.y);
-
-            const rTop = PLAYER_SIZE * 0.5;  // círculo de arriba (cabeza)
-            const rBot = PLAYER_SIZE * 0.6;  // círculo de abajo (cuerpo)
-
-            // cuerpo: círculo de abajo
-            const gradBot = ctx.createLinearGradient(-rBot, 0, rBot, 0);
-            gradBot.addColorStop(0, "#ffcc88");
-            gradBot.addColorStop(1, "#ff8855");
-            ctx.fillStyle = gradBot;
-            ctx.beginPath();
-            ctx.arc(0, rBot * 0.4, rBot, 0, Math.PI * 2);
-            ctx.fill();
-
-            // círculo de arriba
-            const gradTop = ctx.createLinearGradient(-rTop, -rTop, rTop, rTop);
-            gradTop.addColorStop(0, "#ffe4aa");
-            gradTop.addColorStop(1, "#ff9966");
-            ctx.fillStyle = gradTop;
-            ctx.beginPath();
-            ctx.arc(0, -rTop * 0.9, rTop, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.strokeStyle = "#331515";
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(0, rBot * 0.4, rBot, 0, Math.PI * 2);
-            ctx.arc(0, -rTop * 0.9, rTop, 0, Math.PI * 2);
-            ctx.stroke();
-
-            // ojos en el círculo de arriba
-            ctx.fillStyle = "#ffffff";
-            ctx.beginPath();
-            ctx.arc(-rTop * 0.35, -rTop * 1.0, 2, 0, Math.PI * 2);
-            ctx.arc( rTop * 0.35, -rTop * 1.0, 2, 0, Math.PI * 2);
-            ctx.fill();
-
-            // boca
-            ctx.strokeStyle = "#552222";
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            if (player.isJumping) {
-                // feliz al subir
-                ctx.arc(0, -rTop * 0.75, 4, 0, Math.PI, false);
-            } else if (player.vy > 600) {
-                // recta al caer rápido
-                ctx.moveTo(-3, -rTop * 0.7);
-                ctx.lineTo( 3, -rTop * 0.7);
-            } else {
-                // ligera sonrisa neutra
-                ctx.arc(0, -rTop * 0.8, 4, 0, Math.PI);
-            }
-            ctx.stroke();
-
-            ctx.restore();
-
-            // HUD (altura/puntuación)
-            ctx.fillStyle = "white";
-            ctx.font = "bold 20px Arial";
-            ctx.textAlign = "left";
-            ctx.fillText(`Altura: ${player.score}`, 10, 30);
-        }
-
-        function drawPlatforms() {
-            ctx.fillStyle = "#171717";
-            platforms.forEach(p => {
-                ctx.fillRect(p.x, p.y, PLATFORM_WIDTH, PLATFORM_HEIGHT);
-            });
-        }
-
-        // === GAME LOOP ===
-
-        function gameLoop(currentTime) {
-            deltaTime = (currentTime - lastTime) / 1000;
-            lastTime = currentTime;
-
-            drawBackground();
-
-            if (started && !gameOver) {
-                updatePlayer(deltaTime);
-                checkCollisions();
-            }
-
-            drawPlatforms();
-            drawPlayer();
-
-            requestAnimationFrame(gameLoop);
-        }
-
-        // === RECURSOS (ya no hay imágenes, así que es instantáneo) ===
-
-        function loadResources() {
-            return Promise.resolve();
-        }
-
-        function init() {
-            loadResources().then(() => {
-                setupCanvas();
-                window.addEventListener('resize', setupCanvas);
-
-                document.addEventListener('mousedown', handleInput);
-                document.addEventListener('touchstart', handleInput, { passive: false });
-                document.addEventListener('keydown', handleKeyDown);
-                document.addEventListener('keyup', handleKeyUp);
-
-                requestAnimationFrame(gameLoop);
-            });
-        }
-
-        init();
-    </script>
+    init();
+  </script>
 
 </body>
 </html>
