@@ -18,7 +18,7 @@
     }
 
     body {
-      background: #02010a;
+      background: #05020b;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
         sans-serif;
       touch-action: none;
@@ -30,6 +30,7 @@
       height: 100%;
     }
 
+    /* Overlay de inicio/game over */
     #overlay {
       position: fixed;
       inset: 0;
@@ -37,32 +38,41 @@
       justify-content: center;
       align-items: center;
       color: #ffffff;
-      font-weight: 600;
-      font-size: 22px;
       text-align: center;
       z-index: 10;
-      text-shadow: 0 0 18px rgba(150, 120, 255, 0.8);
       background: radial-gradient(
         circle at center,
-        rgba(40, 20, 80, 0.6),
-        rgba(0, 0, 0, 0.9)
+        rgba(40, 24, 80, 0.7),
+        rgba(0, 0, 0, 0.95)
       );
-      cursor: pointer;
     }
 
     #overlay-content {
       padding: 18px 26px;
-      border-radius: 14px;
-      background: rgba(10, 5, 25, 0.85);
-      box-shadow: 0 0 24px rgba(120, 90, 255, 0.6);
-      border: 1px solid rgba(180, 150, 255, 0.4);
+      border-radius: 16px;
+      background: rgba(12, 8, 30, 0.9);
+      border: 1px solid rgba(190, 160, 255, 0.6);
+      box-shadow: 0 0 28px rgba(130, 90, 255, 0.7);
     }
 
-    #overlay-content small {
-      display: block;
-      margin-top: 8px;
+    #overlay-content h1 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      letter-spacing: 2px;
+    }
+
+    #overlay-content p {
+      margin: 4px 0;
       font-size: 13px;
-      opacity: 0.75;
+      opacity: 0.8;
+    }
+
+    #overlay-content .tap {
+      margin-top: 10px;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #ffdd88;
     }
   </style>
 </head>
@@ -71,132 +81,98 @@
 
   <div id="overlay">
     <div id="overlay-content">
-      ASCENSIÓN INFINITA<br />
-      <small>Toca para comenzar • Inclina o toca lados para moverte</small>
+      <h1>ASCENSIÓN INFINITA</h1>
+      <p>Rebota en plataformas y sube lo más alto posible.</p>
+      <p>PC: Usa las flechas ← →</p>
+      <p>Móvil: Toca el lado izquierdo o derecho de la pantalla.</p>
+      <div class="tap">TOCA PARA EMPEZAR</div>
     </div>
   </div>
 
   <script>
-    // ==== Utilidades ====
+    // ---------- Utilidades ----------
     const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
-    // ==== Input Manager ====
-    class InputManager {
+    // ---------- Input ----------
+    class Input {
       constructor() {
-        this.tiltX = 0;
+        this.horizontal = 0; // -1 izq, 1 der
         this.keys = new Set();
-        this.motionEnabled = false;
-
-        // Fallback táctil
-        this.touchDir = 0; // -1 izquierda, 1 derecha, 0 neutro
       }
 
       init() {
         // Teclado
         window.addEventListener("keydown", (e) => {
           this.keys.add(e.key);
-        });
-        window.addEventListener("keyup", (e) => {
-          this.keys.delete(e.key);
+          this.updateFromKeyboard();
         });
 
-        // Controles táctiles en toda la ventana
+        window.addEventListener("keyup", (e) => {
+          this.keys.delete(e.key);
+          this.updateFromKeyboard();
+        });
+
+        // Táctil: lado izq / der de la pantalla
         const handleTouch = (ev) => {
           if (!ev.touches || ev.touches.length === 0) {
-            this.touchDir = 0;
+            this.horizontal = 0;
             return;
           }
           const touch = ev.touches[0];
           const mid = window.innerWidth / 2;
-          this.touchDir = touch.clientX < mid ? -1 : 1;
+          this.horizontal = touch.clientX < mid ? -1 : 1;
         };
 
-        window.addEventListener("touchstart", (ev) => {
-          ev.preventDefault();
-          handleTouch(ev);
-        }, { passive: false });
+        window.addEventListener(
+          "touchstart",
+          (ev) => {
+            ev.preventDefault();
+            handleTouch(ev);
+          },
+          { passive: false }
+        );
 
-        window.addEventListener("touchmove", (ev) => {
-          ev.preventDefault();
-          handleTouch(ev);
-        }, { passive: false });
+        window.addEventListener(
+          "touchmove",
+          (ev) => {
+            ev.preventDefault();
+            handleTouch(ev);
+          },
+          { passive: false }
+        );
 
         window.addEventListener("touchend", () => {
-          this.touchDir = 0;
+          this.horizontal = 0;
         });
+
         window.addEventListener("touchcancel", () => {
-          this.touchDir = 0;
+          this.horizontal = 0;
         });
       }
 
-      enableMotion() {
-        if (this.motionEnabled) return;
-
-        if (
-          typeof DeviceMotionEvent !== "undefined" &&
-          typeof DeviceMotionEvent.requestPermission === "function"
-        ) {
-          DeviceMotionEvent.requestPermission()
-            .then((res) => {
-              if (res === "granted") {
-                window.addEventListener(
-                  "devicemotion",
-                  this.handleTilt.bind(this),
-                  false
-                );
-                this.motionEnabled = true;
-              }
-            })
-            .catch(() => {
-              // si falla, seguimos solo con touch/teclado
-            });
-        } else if ("DeviceMotionEvent" in window) {
-          window.addEventListener(
-            "devicemotion",
-            this.handleTilt.bind(this),
-            false
-          );
-          this.motionEnabled = true;
-        }
+      updateFromKeyboard() {
+        let h = 0;
+        if (this.keys.has("ArrowLeft") || this.keys.has("a")) h -= 1;
+        if (this.keys.has("ArrowRight") || this.keys.has("d")) h += 1;
+        this.horizontal = clamp(h, -1, 1);
       }
 
-      handleTilt(event) {
-        // Invertimos para que:
-        // inclinar a la izquierda => movimiento a la izquierda
-        const ax = event.accelerationIncludingGravity.x || 0;
-        this.tiltX = -ax;
-      }
-
-      getHorizontalInput() {
-        let x = 0;
-
-        // Teclado (PC)
-        if (this.keys.has("ArrowLeft") || this.keys.has("a")) x -= 1;
-        if (this.keys.has("ArrowRight") || this.keys.has("d")) x += 1;
-
-        // Tilt móvil
-        if (this.motionEnabled) {
-          x += this.tiltX * 0.25; // suave
-        }
-
-        // Fallback táctil (si estás tocando se suma)
-        x += this.touchDir * 1.0;
-
-        return clamp(x, -1.5, 1.5);
+      getHorizontal() {
+        return this.horizontal;
       }
     }
 
-    // ==== Player ====
+    // ---------- Player ----------
     class Player {
       constructor(game) {
         this.game = game;
-        this.radius = 18;
+        this.radius = 16;
         this.reset();
       }
 
       reset() {
         this.x = this.game.width / 2;
-        this.y = this.game.height - 120;
+        this.y = this.game.height - 140;
         this.vx = 0;
         this.vy = 0;
         this.maxHeight = 0;
@@ -204,20 +180,21 @@
         this.isJumping = false;
       }
 
-      applyPhysics(dt) {
-        const G = this.game.config.GRAVITY;
-        this.vy += G * dt;
+      update(dt, platforms) {
+        const cfg = this.game.config;
+
+        // Física vertical
+        this.vy += cfg.GRAVITY * dt;
         this.y += this.vy * dt;
 
-        // Movimiento horizontal
-        const input = this.game.input.getHorizontalInput();
-        const accel = this.game.config.HORIZONTAL_ACCEL;
-        const maxVx = this.game.config.MAX_VX;
-        this.vx += input * accel * dt;
-        this.vx = clamp(this.vx, -maxVx, maxVx);
+        // Input horizontal
+        const input = this.game.input.getHorizontal();
+        this.vx += input * cfg.HORIZONTAL_ACCEL * dt;
+        this.vx = clamp(this.vx, -cfg.MAX_VX, cfg.MAX_VX);
 
-        if (Math.abs(input) < 0.1) {
-          this.vx *= this.game.config.HORIZONTAL_DAMPING;
+        // Frenado cuando no hay input
+        if (Math.abs(input) < 0.05) {
+          this.vx *= cfg.HORIZONTAL_DAMPING;
         }
 
         this.x += this.vx * dt;
@@ -228,38 +205,32 @@
 
         this.isJumping = this.vy < 0;
 
+        // Altura (para score y gradiente)
         const theoreticalHeight = this.game.spawnBaseY - this.y;
         if (theoreticalHeight > this.maxHeight) {
           this.maxHeight = theoreticalHeight;
           this.score = Math.floor(this.maxHeight / 100);
         }
-      }
 
-      handleCollisions(platforms) {
-        if (this.vy <= 0) return;
-
-        const bottom = this.y + this.radius;
-
-        for (const p of platforms) {
-          if (
-            this.x + this.radius > p.x &&
-            this.x - this.radius < p.x + p.width &&
-            bottom > p.y &&
-            bottom < p.y + p.height
-          ) {
-            if (bottom < p.y + p.height / 2) {
-              this.y = p.y - this.radius;
-              this.vy = this.game.config.JUMP_VELOCITY;
-              this.isJumping = true;
-              break;
+        // Colisiones con plataformas (solo al caer)
+        if (this.vy > 0) {
+          const bottom = this.y + this.radius;
+          for (const p of platforms) {
+            if (
+              this.x + this.radius > p.x &&
+              this.x - this.radius < p.x + p.width &&
+              bottom > p.y &&
+              bottom < p.y + p.height
+            ) {
+              if (bottom < p.y + p.height / 2) {
+                this.y = p.y - this.radius;
+                this.vy = cfg.JUMP_VELOCITY;
+                this.isJumping = true;
+                break;
+              }
             }
           }
         }
-      }
-
-      update(dt, platforms) {
-        this.applyPhysics(dt);
-        this.handleCollisions(platforms);
       }
 
       draw(ctx) {
@@ -268,67 +239,68 @@
 
         const r = this.radius;
 
-        // Glow místico
-        const glowGrad = ctx.createRadialGradient(
+        // Halo suave
+        const glow = ctx.createRadialGradient(
           0,
           0,
           r * 0.4,
           0,
           0,
-          r * 2.2
+          r * 2.1
         );
-        glowGrad.addColorStop(0, "rgba(180, 150, 255, 0.8)");
-        glowGrad.addColorStop(1, "rgba(20, 5, 60, 0)");
-        ctx.fillStyle = glowGrad;
+        glow.addColorStop(0, "rgba(214, 182, 255, 0.9)");
+        glow.addColorStop(1, "rgba(10, 3, 35, 0)");
+        ctx.fillStyle = glow;
         ctx.beginPath();
-        ctx.arc(0, 0, r * 2.2, 0, Math.PI * 2);
+        ctx.arc(0, 0, r * 2.1, 0, Math.PI * 2);
         ctx.fill();
 
         // Cuerpo
-        const coreGrad = ctx.createRadialGradient(
-          -r * 0.3,
-          -r * 0.3,
-          r * 0.2,
+        const core = ctx.createRadialGradient(
+          -r * 0.25,
+          -r * 0.25,
+          r * 0.3,
           0,
           0,
           r
         );
-        coreGrad.addColorStop(0, "#fff9d5");
-        coreGrad.addColorStop(0.4, "#ffe27a");
-        coreGrad.addColorStop(1, "#ff9f5a");
-        ctx.fillStyle = coreGrad;
+        core.addColorStop(0, "#fff7d0");
+        core.addColorStop(0.45, "#ffd86f");
+        core.addColorStop(1, "#ff9c5a");
+        ctx.fillStyle = core;
         ctx.beginPath();
         ctx.arc(0, 0, r, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.lineWidth = 2;
-        ctx.strokeStyle = "rgba(20, 8, 40, 0.9)";
+        ctx.strokeStyle = "rgba(30, 18, 50, 0.9)";
         ctx.stroke();
 
+        // Carita simple
         // Ojos
         ctx.fillStyle = "#ffffff";
         ctx.beginPath();
-        ctx.arc(-r * 0.35, -r * 0.2, 2.4, 0, Math.PI * 2);
-        ctx.arc(r * 0.35, -r * 0.2, 2.4, 0, Math.PI * 2);
+        ctx.arc(-r * 0.35, -r * 0.18, 2.3, 0, Math.PI * 2);
+        ctx.arc(r * 0.35, -r * 0.18, 2.3, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.fillStyle = "#23213a";
+        ctx.fillStyle = "#24213a";
         ctx.beginPath();
-        ctx.arc(-r * 0.35, -r * 0.2, 1.1, 0, Math.PI * 2);
-        ctx.arc(r * 0.35, -r * 0.2, 1.1, 0, Math.PI * 2);
+        ctx.arc(-r * 0.35, -r * 0.18, 1.1, 0, Math.PI * 2);
+        ctx.arc(r * 0.35, -r * 0.18, 1.1, 0, Math.PI * 2);
         ctx.fill();
 
         // Boca
         ctx.strokeStyle = "#4d2640";
-        ctx.lineWidth = 1.6;
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
         if (this.isJumping) {
-          ctx.arc(0, r * 0.1, 5, 0, Math.PI, false);
+          ctx.arc(0, r * 0.08, 4.5, 0, Math.PI, false);
         } else if (this.vy > 600) {
           ctx.moveTo(-4, r * 0.1);
           ctx.lineTo(4, r * 0.1);
         } else {
-          ctx.arc(0, r * 0.12, 4, 0, Math.PI);
+          ctx.arc(0, r * 0.1, 4, 0, Math.PI);
         }
         ctx.stroke();
 
@@ -336,7 +308,7 @@
       }
     }
 
-    // ==== Platform ====
+    // ---------- Plataforma ----------
     class Platform {
       constructor(x, y, width, height) {
         this.x = x;
@@ -347,83 +319,131 @@
 
       draw(ctx) {
         ctx.save();
-        ctx.fillStyle = "rgba(18, 10, 40, 0.95)";
-        ctx.fillRect(this.x, this.y, this.width, this.height);
 
-        const glowGrad = ctx.createLinearGradient(
+        // Sombra
+        ctx.fillStyle = "rgba(8, 3, 20, 0.6)";
+        ctx.fillRect(
+          this.x,
+          this.y + this.height * 0.35,
+          this.width,
+          this.height * 0.8
+        );
+
+        // Base
+        const grad = ctx.createLinearGradient(
           this.x,
           this.y,
           this.x,
           this.y + this.height
         );
-        glowGrad.addColorStop(0, "rgba(190,170,255,0.9)");
-        glowGrad.addColorStop(1, "rgba(80,40,150,0.3)");
-        ctx.fillStyle = glowGrad;
-        ctx.fillRect(this.x, this.y, this.width, this.height * 0.4);
+        grad.addColorStop(0, "rgb(198, 176, 255)");
+        grad.addColorStop(1, "rgb(101, 74, 180)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+
+        // Borde superior
+        ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+        ctx.fillRect(this.x, this.y, this.width, 2);
 
         ctx.restore();
       }
     }
 
-    // ==== Game ====
+    // ---------- Estrellas de fondo ----------
+    class StarField {
+      constructor(game, count = 80) {
+        this.game = game;
+        this.stars = [];
+        this.count = count;
+        this.init();
+      }
+
+      init() {
+        this.stars = [];
+        for (let i = 0; i < this.count; i++) {
+          this.stars.push({
+            x: Math.random() * this.game.width,
+            y: Math.random() * this.game.height,
+            radius: Math.random() * 1.4 + 0.3,
+            alpha: Math.random() * 0.8 + 0.2
+          });
+        }
+      }
+
+      scroll(dy) {
+        for (const s of this.stars) {
+          s.y += dy * 0.5; // parallax suave
+          if (s.y > this.game.height) {
+            s.y -= this.game.height;
+          }
+        }
+      }
+
+      draw(ctx) {
+        ctx.save();
+        for (const s of this.stars) {
+          ctx.fillStyle = `rgba(255,255,255,${s.alpha})`;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+
+    // ---------- Juego ----------
     class Game {
       constructor(canvas) {
         this.canvas = canvas;
         this.ctx = canvas.getContext("2d");
 
         this.dpr = window.devicePixelRatio || 1;
-        this.updateViewportSize();
+        this.updateSize();
+
+        this.config = {
+          GRAVITY: 1600,
+          JUMP_VELOCITY: -850,
+          MAX_VX: 300,
+          HORIZONTAL_ACCEL: 1300,
+          HORIZONTAL_DAMPING: 0.90,
+          PLATFORM_WIDTH: 70,
+          PLATFORM_HEIGHT: 12,
+          PLATFORM_COUNT: 18
+        };
 
         this.state = "START"; // START | RUNNING | GAME_OVER
 
-        this.config = {
-          GRAVITY: 1500,
-          JUMP_VELOCITY: -800,
-          MAX_VX: 320,
-          HORIZONTAL_ACCEL: 1200,
-          HORIZONTAL_DAMPING: 0.92,
-          PLATFORM_WIDTH: 70,
-          PLATFORM_HEIGHT: 12,
-          PLATFORM_COUNT: 16
-        };
-
-        this.input = new InputManager();
+        this.input = new Input();
         this.input.init();
 
         this.player = new Player(this);
-
         this.platforms = [];
-        this.spawnBaseY = this.height - 80;
+        this.spawnBaseY = this.height - 100;
         this.maxPlatformY = this.spawnBaseY;
+
+        this.starField = new StarField(this, 90);
 
         this.lastTime = 0;
 
-        this.setupInitialPlatforms();
+        this.setupPlatforms();
         this.attachEvents();
       }
 
-      // tamaño real visible del viewport (evita bug de innerHeight en iOS)
-      updateViewportSize() {
+      updateSize() {
         const docEl = document.documentElement;
         this.width = docEl.clientWidth || window.innerWidth;
         this.height = docEl.clientHeight || window.innerHeight;
 
-        const w = this.width * this.dpr;
-        const h = this.height * this.dpr;
-        this.canvas.width = w;
-        this.canvas.height = h;
+        this.canvas.width = this.width * this.dpr;
+        this.canvas.height = this.height * this.dpr;
         this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
       }
 
-      resize() {
-        this.updateViewportSize();
-        this.spawnBaseY = this.height - 80;
-      }
-
-      setupInitialPlatforms() {
+      setupPlatforms() {
         this.platforms = [];
         this.maxPlatformY = this.spawnBaseY;
 
+        // Plataforma base
         const baseX = this.width / 2 - this.config.PLATFORM_WIDTH / 2;
         this.platforms.push(
           new Platform(
@@ -440,67 +460,74 @@
       }
 
       spawnPlatform() {
-        const minSpacing = this.height * 0.08;
-        const maxSpacing = this.height * 0.13;
-        const spacing =
-          minSpacing + Math.random() * (maxSpacing - minSpacing);
+        const minSp = this.height * 0.08;
+        const maxSp = this.height * 0.13;
+        const spacing = minSp + Math.random() * (maxSp - minSp);
 
         const y = this.maxPlatformY - spacing;
-
         const margin = 40;
         const x =
           margin +
           Math.random() *
             (this.width - this.config.PLATFORM_WIDTH - margin * 2);
 
-        const p = new Platform(
-          x,
-          y,
-          this.config.PLATFORM_WIDTH,
-          this.config.PLATFORM_HEIGHT
+        this.platforms.push(
+          new Platform(
+            x,
+            y,
+            this.config.PLATFORM_WIDTH,
+            this.config.PLATFORM_HEIGHT
+          )
         );
-
-        this.platforms.push(p);
         this.maxPlatformY = y;
       }
 
       attachEvents() {
         window.addEventListener("resize", () => {
-          this.resize();
+          this.updateSize();
         });
 
         const overlay = document.getElementById("overlay");
-        const handleStart = (ev) => {
+        const startHandler = (ev) => {
           ev.preventDefault();
           if (this.state === "START") {
-            this.startGame();
+            this.start();
           } else if (this.state === "GAME_OVER") {
-            this.restartGame();
+            this.restart();
           }
         };
-        overlay.addEventListener("click", handleStart);
-        overlay.addEventListener("touchstart", handleStart, { passive: false });
+        overlay.addEventListener("click", startHandler);
+        overlay.addEventListener("touchstart", startHandler, {
+          passive: false
+        });
       }
 
-      startGame() {
+      start() {
         this.state = "RUNNING";
         document.getElementById("overlay").style.display = "none";
-        this.input.enableMotion();
       }
 
-      restartGame() {
+      restart() {
         this.player.reset();
-        this.setupInitialPlatforms();
+        this.spawnBaseY = this.height - 100;
+        this.starField.init();
+        this.setupPlatforms();
         this.state = "RUNNING";
+
+        const ov = document.getElementById("overlay-content");
+        ov.querySelector(".tap").textContent = "TOCA PARA REINICIAR";
         document.getElementById("overlay").style.display = "none";
-        this.input.enableMotion();
       }
 
       gameOver() {
         this.state = "GAME_OVER";
         const overlay = document.getElementById("overlay");
-        const oc = document.getElementById("overlay-content");
-        oc.innerHTML = `GAME OVER<br><small>Altura: ${this.player.score} • Toca para reiniciar</small>`;
+        const box = document.getElementById("overlay-content");
+        box.innerHTML = `
+          <h1>GAME OVER</h1>
+          <p>Altura alcanzada: ${this.player.score} m</p>
+          <div class="tap">TOCA PARA REINTENTAR</div>
+        `;
         overlay.style.display = "flex";
       }
 
@@ -509,25 +536,30 @@
 
         this.player.update(dt, this.platforms);
 
-        if (this.player.y < this.height * 0.45) {
-          const dy = this.height * 0.45 - this.player.y;
-          this.player.y = this.height * 0.45;
+        // Cámara: mantenemos al jugador aprox en el 40% de la altura
+        if (this.player.y < this.height * 0.4) {
+          const dy = this.height * 0.4 - this.player.y;
+          this.player.y = this.height * 0.4;
 
-          for (const p of this.platforms) {
-            p.y += dy;
-          }
+          // Mover plataformas y base
+          for (const p of this.platforms) p.y += dy;
           this.spawnBaseY += dy;
           this.maxPlatformY += dy;
 
+          this.starField.scroll(dy);
+
+          // Eliminar plataformas que quedan abajo
           this.platforms = this.platforms.filter(
             (p) => p.y < this.height + 80
           );
 
+          // Generar más arriba
           while (this.maxPlatformY > -this.height * 0.25) {
             this.spawnPlatform();
           }
         }
 
+        // Caída fuera de pantalla
         if (this.player.y - this.player.radius > this.height + 80) {
           this.gameOver();
         }
@@ -535,39 +567,42 @@
 
       drawBackground() {
         const ctx = this.ctx;
-
         const h = this.player.maxHeight;
-        const t = clamp(h / 20000, 0, 1);
+        const t = clamp(h / 25000, 0, 1);
 
-        const topColor = `hsl(${260 - t * 20}, 60%, ${16 + t * 10}%)`;
-        const midColor = `hsl(${210 - t * 10}, 70%, ${20 + t * 20}%)`;
-        const bottomColor = `hsl(${190}, 80%, ${10 + t * 15}%)`;
+        // Degradado dinámico
+        const top = `hsl(${250 - t * 40}, 65%, ${18 + t * 8}%)`;
+        const mid = `hsl(${220 - t * 10}, 70%, ${22 + t * 18}%)`;
+        const bottom = `hsl(${195}, 75%, ${12 + t * 18}%)`;
 
         const grad = ctx.createLinearGradient(0, 0, 0, this.height);
-        grad.addColorStop(0, topColor);
-        grad.addColorStop(0.5, midColor);
-        grad.addColorStop(1, bottomColor);
+        grad.addColorStop(0, top);
+        grad.addColorStop(0.5, mid);
+        grad.addColorStop(1, bottom);
 
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, this.width, this.height);
 
-        ctx.fillStyle = "rgba(255,255,255,0.06)";
+        // Lóbulos suaves tipo "dimensión"
+        ctx.fillStyle = "rgba(255,255,255,0.04)";
         for (let i = 0; i < 3; i++) {
           const y =
-            (this.height / 4) * i +
+            (this.height / 3) * i +
             ((h * 0.01 * (i + 1)) % this.height);
           ctx.beginPath();
           ctx.ellipse(
             this.width / 2,
             y,
-            this.width * 0.7,
-            this.height * 0.18,
+            this.width * 0.8,
+            this.height * 0.22,
             0,
             0,
             Math.PI * 2
           );
           ctx.fill();
         }
+
+        this.starField.draw(ctx);
       }
 
       drawHud() {
@@ -576,16 +611,14 @@
         ctx.fillStyle = "rgba(255,255,255,0.9)";
         ctx.font = "16px system-ui";
         ctx.textAlign = "left";
-        ctx.fillText(`Altura: ${this.player.score}`, 12, 26);
+        ctx.fillText(`Altura: ${this.player.score} m`, 12, 26);
         ctx.restore();
       }
 
       draw() {
         this.drawBackground();
 
-        for (const p of this.platforms) {
-          p.draw(this.ctx);
-        }
+        for (const p of this.platforms) p.draw(this.ctx);
 
         this.player.draw(this.ctx);
         this.drawHud();
@@ -605,6 +638,7 @@
       }
     }
 
+    // ---------- Lanzar juego ----------
     const canvas = document.getElementById("game");
     const game = new Game(canvas);
     requestAnimationFrame(game.loop.bind(game));
