@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Ascensión Infinita – Fase 1</title>
+  <title>Ascensión Infinita – Fase 2</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <style>
     body {
@@ -32,9 +32,10 @@
       padding: 0 8px;
     }
     #hud {
-      font-size: 13px;
+      font-size: 12px;
       margin-top: 4px;
-      opacity: 0.9;
+      opacity: 0.95;
+      text-align: center;
     }
     canvas {
       border: 2px solid #ffcc55;
@@ -52,7 +53,7 @@
     PC: Usa las flechas ← → para moverte · Rebotas en plataformas y subes sin límite
   </div>
   <canvas id="game" width="360" height="640"></canvas>
-  <div id="hud">Altura: 0 m · Zona: Jardín</div>
+  <div id="hud">Altura: 0 m · Orbes: 0 · Score: 0 · Record: 0</div>
 
   <script>
     const canvas = document.getElementById("game");
@@ -74,7 +75,7 @@
       vy: 0,
     };
 
-    // FÍSICA SUAVE (estilo Doodle)
+    // FÍSICA SUAVE (sensibilidad baja)
     const GRAVITY = -0.5;
     const JUMP_SPEED = 13.8;
     let HORIZ_SPEED_MAX = 4.5;
@@ -88,27 +89,65 @@
     let tiltX = 0; // -1..1
     const keys = { left: false, right: false };
 
-    // SPRITE opcional
+    // SPRITE opcional del gusano
     const wormSprite = new Image();
     let wormSpriteLoaded = false;
     wormSprite.onload = () => { wormSpriteLoaded = true; };
-    wormSprite.src = "gusano.png"; // si no existe, usa gusano vectorial
+    wormSprite.src = "gusano.png"; // si no existe, se usa el vectorial
 
-    // PARTICULAS DE REBOTE
+    // PARTICULAS DE REBOTE Y ORBES
     const particles = [];
+
+    // ORBES
+    const orbs = [];
+    let orbsCollected = 0;
+
+    // SCORE
+    let score = 0;
+    let bestScore = 0;
+    let newRecord = false;
+
+    // TEXTOS FLOTANTES (ej: "+50", "Nuevo récord")
+    const floatingTexts = [];
+
+    // Cargar récord desde localStorage
+    try {
+      const s = localStorage.getItem("ai_best_score");
+      if (s) bestScore = parseInt(s) || 0;
+    } catch (e) {
+      bestScore = 0;
+    }
 
     function spawnBounceParticles(x, yWorld) {
       const count = 8;
       for (let i = 0; i < count; i++) {
-        const angle = Math.random() * Math.PI; // semicírculo hacia arriba
+        const angle = Math.random() * Math.PI;
         const speed = 3 + Math.random() * 2;
         particles.push({
           x,
           y: yWorld,
           vx: Math.cos(angle) * speed,
           vy: Math.sin(angle) * speed,
-          life: 400 + Math.random() * 200, // ms
+          life: 400 + Math.random() * 200,
           maxLife: 400 + Math.random() * 200,
+          color: "bounce"
+        });
+      }
+    }
+
+    function spawnOrbParticles(x, yWorld) {
+      const count = 10;
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 2;
+        particles.push({
+          x,
+          y: yWorld,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 500 + Math.random() * 200,
+          maxLife: 500 + Math.random() * 200,
+          color: "orb"
         });
       }
     }
@@ -121,7 +160,6 @@
           particles.splice(i, 1);
           continue;
         }
-        // un poco de gravedad para que caigan
         p.vy += GRAVITY * 0.15 * (dt / 16);
         p.x += p.vx * (dt / 16);
         p.y += p.vy * (dt / 16);
@@ -133,11 +171,58 @@
         const alpha = Math.max(p.life / p.maxLife, 0);
         const sy = worldToScreenY(p.y);
         const size = 3 + (1 - alpha) * 2;
-        ctx.fillStyle = "rgba(255, 230, 150," + (0.4 + 0.4 * alpha) + ")";
+
+        if (p.color === "orb") {
+          ctx.fillStyle = "rgba(120,255,220," + (0.5 + 0.4 * alpha) + ")";
+        } else {
+          ctx.fillStyle = "rgba(255,230,150," + (0.4 + 0.4 * alpha) + ")";
+        }
+
         ctx.beginPath();
         ctx.arc(p.x, sy, size, 0, Math.PI * 2);
         ctx.fill();
       }
+    }
+
+    function addFloatingText(text, x, yWorld, color) {
+      floatingTexts.push({
+        text,
+        x,
+        y: yWorld,
+        life: 800,
+        maxLife: 800,
+        color
+      });
+    }
+
+    function updateFloatingTexts(dt) {
+      for (let i = floatingTexts.length - 1; i >= 0; i--) {
+        const t = floatingTexts[i];
+        t.life -= dt;
+        if (t.life <= 0) {
+          floatingTexts.splice(i, 1);
+          continue;
+        }
+        t.y += 0.03 * (dt / 16); // se va hacia arriba en mundo (después se proyecta)
+      }
+    }
+
+    function drawFloatingTexts() {
+      ctx.font = "12px system-ui";
+      ctx.textAlign = "center";
+      for (const t of floatingTexts) {
+        const alpha = Math.max(t.life / t.maxLife, 0);
+        const sy = worldToScreenY(t.y);
+        let c = "#ffffff";
+        if (t.color === "orb") c = "#88ffd0";
+        if (t.color === "record") c = "#ffdd55";
+
+        ctx.fillStyle = "rgba(0,0,0," + (0.3 * alpha) + ")";
+        ctx.fillText(t.text, t.x + 1, sy + 1);
+        ctx.fillStyle = c.replace(")", "," + alpha + ")");
+        ctx.fillText(t.text, t.x, sy);
+      }
+      ctx.textAlign = "left";
     }
 
     function difficultyFactor() {
@@ -146,6 +231,7 @@
 
     function generateInitialPlatforms() {
       platforms.length = 0;
+      orbs.length = 0;
 
       platforms.push({
         x: W / 2 - BASE_PLATFORM_WIDTH * 1.1 / 2,
@@ -160,21 +246,36 @@
       let spacing = 70;
 
       for (let i = 0; i < 25; i++) {
-        const w = BASE_PLATFORM_WIDTH;
-        const margin = 25;
-        const maxX = W - margin - w;
-        const x = margin + Math.random() * (maxX - margin);
-
-        platforms.push({
-          x,
-          y,
-          w,
-          h: PLATFORM_HEIGHT,
-          type: "normal",
-          vx: 0
-        });
+        addPlatformAt(y, spacing);
         y += spacing;
         spacing += 1.5;
+      }
+    }
+
+    function addPlatformAt(y, spacingBase) {
+      const w = BASE_PLATFORM_WIDTH;
+      const margin = 25;
+      const maxX = W - margin - w;
+      const x = margin + Math.random() * (maxX - margin);
+
+      const p = {
+        x,
+        y,
+        w,
+        h: PLATFORM_HEIGHT,
+        type: "normal",
+        vx: 0
+      };
+      platforms.push(p);
+
+      // chance de orb encima de esta plataforma inicial
+      if (Math.random() < 0.25) {
+        orbs.push({
+          x: p.x + p.w / 2,
+          y: p.y + p.h + 15,
+          radius: 6,
+          collected: false
+        });
       }
     }
 
@@ -209,14 +310,26 @@
           type = "small";
         }
 
-        platforms.push({
+        const p = {
           x,
           y,
           w: type === "small" ? wBase * 0.6 : wBase,
           h: PLATFORM_HEIGHT,
           type,
           vx
-        });
+        };
+
+        platforms.push(p);
+
+        // chance de orb encima de esta plataforma
+        if (Math.random() < 0.3 && type !== "start") {
+          orbs.push({
+            x: p.x + p.w / 2,
+            y: p.y + p.h + 15,
+            radius: 6,
+            collected: false
+          });
+        }
 
         spacingBase += 1.0;
       }
@@ -225,6 +338,9 @@
       for (let i = platforms.length - 1; i >= 0; i--) {
         if (platforms[i].y < minY) platforms.splice(i, 1);
       }
+      for (let i = orbs.length - 1; i >= 0; i--) {
+        if (orbs[i].y < minY) orbs.splice(i, 1);
+      }
     }
 
     function resetGame() {
@@ -232,6 +348,11 @@
       maxHeight = 0;
       gameOver = false;
       particles.length = 0;
+      orbs.length = 0;
+      orbsCollected = 0;
+      score = 0;
+      newRecord = false;
+      floatingTexts.length = 0;
 
       player.x = W / 2;
       player.y = 80;
@@ -239,6 +360,7 @@
       player.vy = JUMP_SPEED;
 
       generateInitialPlatforms();
+      updateScore();
       updateHUD();
     }
 
@@ -251,11 +373,21 @@
       return "Dimensión Neon";
     }
 
+    function updateScore() {
+      const heightScore = Math.floor(maxHeight);
+      score = heightScore + orbsCollected * 50;
+    }
+
     function updateHUD() {
       const zone = getZoneName(maxHeight);
-      hud.textContent = "Altura: " + Math.floor(maxHeight) + " m · Zona: " + zone;
+      hud.textContent =
+        "Altura: " + Math.floor(maxHeight) +
+        " m · Orbes: " + orbsCollected +
+        " · Score: " + score +
+        " · Record: " + bestScore +
+        " · Zona: " + zone;
       if (gameOver) {
-        hud.textContent += " · GAME OVER (toca o pulsa R para reiniciar)";
+        hud.textContent += " · GAME OVER (toca o pulsa R)";
       }
     }
 
@@ -293,24 +425,20 @@
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, W, H);
 
-      // Parallax: capas simples
-      // offset depende de cameraY (mientras más alto, más se desplazan)
       const offsetSlow = (cameraY * 0.05) % (H * 2);
       const offsetFast = (cameraY * 0.12) % (H * 2);
 
-      // Nubes en cielo / estratosfera
       if (h > 150 && h < 2500) {
         ctx.fillStyle = "rgba(255,255,255,0.5)";
         for (let i = 0; i < 5; i++) {
           const cx = (i * 90 + 40) % W;
           const cy = ((i * 60) + offsetSlow) % (H + 80) - 40;
           ctx.beginPath();
-          ctx.ellipse(cx, cy, 35, 18, 0, 0, Math.PI * 2);
+          ctx.ellipse(cx, cy, 35, 18, 0, Math.PI * 2);
           ctx.fill();
         }
       }
 
-      // Estrellas en espacio
       if (h > 1500) {
         ctx.fillStyle = "rgba(255,255,255,0.7)";
         for (let i = 0; i < 40; i++) {
@@ -320,7 +448,6 @@
         }
       }
 
-      // Sol / luna sencilla
       if (h >= 300 && h < 2000) {
         ctx.beginPath();
         ctx.arc(W * 0.8, H * 0.2, 20, 0, Math.PI * 2);
@@ -348,8 +475,8 @@
       if (keys.left) inputX -= 1;
       if (keys.right) inputX += 1;
 
-      // fuerza moderada: hay que inclinar bien
-      player.vx += inputX * 0.6 * factor;
+      // fuerza moderada: hay que inclinar bastante
+      player.vx += inputX * 0.55 * factor;
       player.vx *= (1 - FRICTION_AIR * factor);
 
       if (player.vx > HORIZ_SPEED_MAX) player.vx = HORIZ_SPEED_MAX;
@@ -370,7 +497,7 @@
         }
       }
 
-      // colisión (rebote) + partículas
+      // colisión / rebote
       if (player.vy <= 0) {
         for (const p of platforms) {
           const top = p.y + p.h;
@@ -384,9 +511,25 @@
           if (withinX && wasAbove && nowBelowTop) {
             player.y = top + player.radius;
             player.vy = JUMP_SPEED;
-            spawnBounceParticles(px, top); // 🔥 partículas en rebote
+            spawnBounceParticles(px, top);
             break;
           }
+        }
+      }
+
+      // recoger orbes
+      for (const orb of orbs) {
+        if (orb.collected) continue;
+        const dx = player.x - orb.x;
+        const dy = player.y - orb.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < player.radius * 0.8 + orb.radius) {
+          orb.collected = true;
+          orbsCollected++;
+          spawnOrbParticles(orb.x, orb.y);
+          addFloatingText("+50", orb.x, orb.y + 10, "orb");
+          updateScore();
+          updateHUD();
         }
       }
 
@@ -396,23 +539,35 @@
 
       if (player.y > maxHeight) {
         maxHeight = player.y;
+        updateScore();
         updateHUD();
       }
 
       if (player.y + player.radius < cameraY - H * 0.5) {
         gameOver = true;
+
+        // al morir, comprobar récord
+        if (score > bestScore) {
+          bestScore = score;
+          newRecord = true;
+          addFloatingText("¡Nuevo récord!", player.x, player.y + 40, "record");
+          try {
+            localStorage.setItem("ai_best_score", String(bestScore));
+          } catch (e) {}
+        }
+
         updateHUD();
       }
 
       addPlatformsAboveIfNeeded();
       updateParticles(dt);
+      updateFloatingTexts(dt);
     }
 
-    // GUSANO VECTORIAL + expresiones
+    // GUSANO VECTORIAL MEJORADO
     function drawWormVector(px, pyScreen) {
       const r = player.radius;
 
-      // squash & stretch
       let stretch = 0;
       if (player.vy > 1) {
         stretch = Math.min(player.vy / 12, 1);
@@ -444,19 +599,31 @@
       ctx.closePath();
 
       const grad = ctx.createLinearGradient(0, -hh, 0, hh);
-      grad.addColorStop(0, "#ff6699");
+      grad.addColorStop(0, "#ff88bb");
+      grad.addColorStop(0.5, "#ff5599");
       grad.addColorStop(1, "#ff3366");
       ctx.fillStyle = grad;
       ctx.fill();
 
       ctx.lineWidth = 2;
-      ctx.strokeStyle = "#ff99bb";
+      ctx.strokeStyle = "#ffb6d5";
       ctx.stroke();
+
+      // líneas de segmento
+      ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      ctx.lineWidth = 1;
+      for (let i = -2; i <= 2; i++) {
+        const yy = (i / 3) * hh * 0.9;
+        ctx.beginPath();
+        ctx.moveTo(-hw * 0.7, yy);
+        ctx.lineTo(hw * 0.7, yy);
+        ctx.stroke();
+      }
 
       // estado emocional según vy
       let mood = "neutral";
-      if (player.vy > 6) mood = "happy";          // sube fuerte
-      else if (player.vy < -8) mood = "scared";   // cae rápido
+      if (player.vy > 6) mood = "happy";
+      else if (player.vy < -8) mood = "scared";
 
       const faceY = -hh * 0.4;
 
@@ -464,11 +631,9 @@
       ctx.fillStyle = "#ffffff";
       ctx.beginPath();
       if (mood === "scared") {
-        // ojos más grandes
         ctx.arc(-hw * 0.3, faceY - 2, 3, 0, Math.PI * 2);
         ctx.arc(hw * 0.3, faceY - 2, 3, 0, Math.PI * 2);
       } else if (mood === "happy") {
-        // ojos tipo sonriendo
         ctx.arc(-hw * 0.3, faceY - 1, 2, 0, Math.PI * 2);
         ctx.arc(hw * 0.3, faceY - 1, 2, 0, Math.PI * 2);
       } else {
@@ -479,15 +644,15 @@
 
       // boca
       ctx.strokeStyle = "#551122";
-      ctx.lineWidth = 1.3;
+      ctx.lineWidth = 1.4;
       ctx.beginPath();
       if (mood === "happy") {
-        ctx.arc(0, faceY + 3, 4, 0, Math.PI, false); // sonrisita
+        ctx.arc(0, faceY + 3, 4, 0, Math.PI, false);
       } else if (mood === "scared") {
         ctx.moveTo(-3, faceY + 5);
-        ctx.lineTo(3, faceY + 5); // boca recta nerviosa
+        ctx.lineTo(3, faceY + 5);
       } else {
-        ctx.arc(0, faceY + 3, 4, 0, Math.PI); // boca neutral
+        ctx.arc(0, faceY + 3, 4, 0, Math.PI);
       }
       ctx.stroke();
 
@@ -585,13 +750,37 @@
         }
       }
 
-      // partículas encima de plataformas
+      // ORBES
+      for (const orb of orbs) {
+        if (orb.collected) continue;
+        const sy = worldToScreenY(orb.y);
+        const pulsate = 1 + 0.2 * Math.sin(Date.now() / 200);
+        const r = orb.radius * pulsate;
+
+        const grad = ctx.createRadialGradient(
+          orb.x, sy, 0,
+          orb.x, sy, r
+        );
+        grad.addColorStop(0, "rgba(180,255,240,0.95)");
+        grad.addColorStop(0.5, "rgba(120,255,220,0.8)");
+        grad.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(orb.x, sy, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "rgba(255,255,255,0.9)";
+        ctx.beginPath();
+        ctx.arc(orb.x - r * 0.3, sy - r * 0.2, r * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // partículas encima de plataformas y orbes
       drawParticles();
 
       const px = player.x;
       const pyScreen = worldToScreenY(player.y);
 
-      // halo suave
       ctx.beginPath();
       ctx.arc(px, pyScreen, player.radius + 10, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(255,255,255,0.05)";
@@ -599,16 +788,32 @@
 
       drawWorm(px, pyScreen);
 
+      // textos flotantes (score, +50, récord)
+      drawFloatingTexts();
+
       if (gameOver) {
-        ctx.fillStyle = "rgba(0,0,0,0.45)";
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
         ctx.fillRect(0, 0, W, H);
         ctx.fillStyle = "#ffcc55";
         ctx.font = "24px system-ui";
         ctx.textAlign = "center";
-        ctx.fillText("GAME OVER", W / 2, H / 2 - 10);
+        ctx.fillText("GAME OVER", W / 2, H / 2 - 20);
+
         ctx.fillStyle = "#ffffff";
-        ctx.font = "13px system-ui";
-        ctx.fillText("Toca o pulsa R para jugar de nuevo", W / 2, H / 2 + 14);
+        ctx.font = "14px system-ui";
+        ctx.fillText("Score: " + score, W / 2, H / 2 + 2);
+        ctx.fillText("Record: " + bestScore, W / 2, H / 2 + 22);
+
+        if (newRecord) {
+          ctx.fillStyle = "#ffdd55";
+          ctx.font = "13px system-ui";
+          ctx.fillText("¡Nuevo récord!", W / 2, H / 2 + 44);
+        }
+
+        ctx.fillStyle = "#cccccc";
+        ctx.font = "11px system-ui";
+        ctx.fillText("Toca o pulsa R para jugar de nuevo", W / 2, H / 2 + 64);
+
         ctx.textAlign = "left";
       }
     }
@@ -634,8 +839,8 @@
 
     function handleOrientation(event) {
       const gamma = event.gamma || 0;
-      // sensibilidad baja, estilo Doodle
-      let norm = gamma / 30;
+      // SENSIBILIDAD BAJA → hay que inclinar bien
+      let norm = gamma / 40; // antes /30, ahora más baja
       if (norm > 1) norm = 1;
       if (norm < -1) norm = -1;
       tiltX = norm;
