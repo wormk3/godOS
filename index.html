@@ -2,19 +2,34 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, viewport-fit=cover, user-scalable=no"
+  />
   <title>Ascensión Infinita</title>
   <style>
+    html,
     body {
       margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
+    }
+
+    body {
       background: #02010a;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
       touch-action: none;
     }
+
     canvas {
       display: block;
+      width: 100%;
+      height: 100%;
     }
+
     #overlay {
       position: fixed;
       inset: 0;
@@ -27,9 +42,14 @@
       text-align: center;
       z-index: 10;
       text-shadow: 0 0 18px rgba(150, 120, 255, 0.8);
-      background: radial-gradient(circle at center, rgba(40, 20, 80, 0.6), rgba(0, 0, 0, 0.9));
+      background: radial-gradient(
+        circle at center,
+        rgba(40, 20, 80, 0.6),
+        rgba(0, 0, 0, 0.9)
+      );
       cursor: pointer;
     }
+
     #overlay-content {
       padding: 18px 26px;
       border-radius: 14px;
@@ -37,6 +57,7 @@
       box-shadow: 0 0 24px rgba(120, 90, 255, 0.6);
       border: 1px solid rgba(180, 150, 255, 0.4);
     }
+
     #overlay-content small {
       display: block;
       margin-top: 8px;
@@ -86,13 +107,21 @@
           DeviceMotionEvent.requestPermission()
             .then((res) => {
               if (res === "granted") {
-                window.addEventListener("devicemotion", this.handleTilt.bind(this), false);
+                window.addEventListener(
+                  "devicemotion",
+                  this.handleTilt.bind(this),
+                  false
+                );
                 this.motionEnabled = true;
               }
             })
             .catch(() => {});
         } else if ("DeviceMotionEvent" in window) {
-          window.addEventListener("devicemotion", this.handleTilt.bind(this), false);
+          window.addEventListener(
+            "devicemotion",
+            this.handleTilt.bind(this),
+            false
+          );
           this.motionEnabled = true;
         }
       }
@@ -111,11 +140,10 @@
 
         // Tilt móvil
         if (this.motionEnabled) {
-          // Escalamos suavemente el tilt
-          x += this.tiltX * 0.25; // número pequeño para que no sea hiper sensible
+          x += this.tiltX * 0.25;
         }
 
-        return clamp(x, -1.5, 1.5); // limitamos por seguridad
+        return clamp(x, -1.5, 1.5);
       }
     }
 
@@ -149,7 +177,6 @@
         this.vx += input * accel * dt;
         this.vx = clamp(this.vx, -maxVx, maxVx);
 
-        // Rozamiento suave cuando no hay input
         if (Math.abs(input) < 0.1) {
           this.vx *= this.game.config.HORIZONTAL_DAMPING;
         }
@@ -160,10 +187,8 @@
         if (this.x < -this.radius) this.x = this.game.width + this.radius;
         if (this.x > this.game.width + this.radius) this.x = -this.radius;
 
-        // Info para animación
         this.isJumping = this.vy < 0;
 
-        // Altura máxima alcanzada (para score)
         const theoreticalHeight = this.game.spawnBaseY - this.y;
         if (theoreticalHeight > this.maxHeight) {
           this.maxHeight = theoreticalHeight;
@@ -172,7 +197,7 @@
       }
 
       handleCollisions(platforms) {
-        if (this.vy <= 0) return; // solo si va cayendo
+        if (this.vy <= 0) return;
 
         const bottom = this.y + this.radius;
 
@@ -183,7 +208,6 @@
             bottom > p.y &&
             bottom < p.y + p.height
           ) {
-            // Toca parte superior de la plataforma
             if (bottom < p.y + p.height / 2) {
               this.y = p.y - this.radius;
               this.vy = this.game.config.JUMP_VELOCITY;
@@ -206,7 +230,14 @@
         const r = this.radius;
 
         // Glow místico
-        const glowGrad = ctx.createRadialGradient(0, 0, r * 0.4, 0, 0, r * 2.2);
+        const glowGrad = ctx.createRadialGradient(
+          0,
+          0,
+          r * 0.4,
+          0,
+          0,
+          r * 2.2
+        );
         glowGrad.addColorStop(0, "rgba(180, 150, 255, 0.8)");
         glowGrad.addColorStop(1, "rgba(20, 5, 60, 0)");
         ctx.fillStyle = glowGrad;
@@ -214,8 +245,15 @@
         ctx.arc(0, 0, r * 2.2, 0, Math.PI * 2);
         ctx.fill();
 
-        // Cuerpo principal
-        const coreGrad = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.2, 0, 0, r);
+        // Cuerpo
+        const coreGrad = ctx.createRadialGradient(
+          -r * 0.3,
+          -r * 0.3,
+          r * 0.2,
+          0,
+          0,
+          r
+        );
         coreGrad.addColorStop(0, "#fff9d5");
         coreGrad.addColorStop(0.4, "#ffe27a");
         coreGrad.addColorStop(1, "#ff9f5a");
@@ -246,14 +284,11 @@
         ctx.lineWidth = 1.6;
         ctx.beginPath();
         if (this.isJumping) {
-          // sonrisa grande
           ctx.arc(0, r * 0.1, 5, 0, Math.PI, false);
         } else if (this.vy > 600) {
-          // recta (concentrado/asustado)
           ctx.moveTo(-4, r * 0.1);
           ctx.lineTo(4, r * 0.1);
         } else {
-          // sonrisa suave
           ctx.arc(0, r * 0.12, 4, 0, Math.PI);
         }
         ctx.stroke();
@@ -273,11 +308,9 @@
 
       draw(ctx) {
         ctx.save();
-        // base
         ctx.fillStyle = "rgba(18, 10, 40, 0.95)";
         ctx.fillRect(this.x, this.y, this.width, this.height);
 
-        // línea de luz
         const glowGrad = ctx.createLinearGradient(
           this.x,
           this.y,
@@ -299,11 +332,8 @@
         this.canvas = canvas;
         this.ctx = canvas.getContext("2d");
 
-        this.width = window.innerWidth;
-        this.height = window.innerHeight;
-
         this.dpr = window.devicePixelRatio || 1;
-        this.resize();
+        this.updateViewportSize();
 
         this.state = "START"; // START | RUNNING | GAME_OVER
 
@@ -333,9 +363,11 @@
         this.attachEvents();
       }
 
-      resize() {
-        this.width = window.innerWidth;
-        this.height = window.innerHeight;
+      // tamaño real visible, evitamos el bug de innerHeight en iOS
+      updateViewportSize() {
+        const docEl = document.documentElement;
+        this.width = docEl.clientWidth || window.innerWidth;
+        this.height = docEl.clientHeight || window.innerHeight;
 
         const w = this.width * this.dpr;
         const h = this.height * this.dpr;
@@ -344,11 +376,16 @@
         this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
       }
 
+      resize() {
+        this.updateViewportSize();
+        // Reajustar base de spawn manteniendo al jugador en pantalla
+        this.spawnBaseY = this.height - 80;
+      }
+
       setupInitialPlatforms() {
         this.platforms = [];
         this.maxPlatformY = this.spawnBaseY;
 
-        // Plataforma inicial
         const baseX = this.width / 2 - this.config.PLATFORM_WIDTH / 2;
         this.platforms.push(
           new Platform(
@@ -359,7 +396,6 @@
           )
         );
 
-        // Resto
         for (let i = 0; i < this.config.PLATFORM_COUNT; i++) {
           this.spawnPlatform();
         }
@@ -433,33 +469,27 @@
       update(dt) {
         if (this.state !== "RUNNING") return;
 
-        // Actualizar jugador
         this.player.update(dt, this.platforms);
 
-        // Scroll de cámara hacia arriba
         if (this.player.y < this.height * 0.45) {
           const dy = this.height * 0.45 - this.player.y;
           this.player.y = this.height * 0.45;
 
-          // bajamos plataformas (sube el mundo)
           for (const p of this.platforms) {
             p.y += dy;
           }
           this.spawnBaseY += dy;
           this.maxPlatformY += dy;
 
-          // eliminar plataformas muy abajo
           this.platforms = this.platforms.filter(
             (p) => p.y < this.height + 80
           );
 
-          // generar nuevas plataformas arriba
           while (this.maxPlatformY > -this.height * 0.25) {
             this.spawnPlatform();
           }
         }
 
-        // Condición de caída
         if (this.player.y - this.player.radius > this.height + 80) {
           this.gameOver();
         }
@@ -469,10 +499,8 @@
         const ctx = this.ctx;
 
         const h = this.player.maxHeight;
-        // "zona" suavizada por altura
-        const t = clamp(h / 20000, 0, 1); // 0 a 1
+        const t = clamp(h / 20000, 0, 1);
 
-        // interpolate entre púrpura oscuro y azul eléctrico
         const topColor = `hsl(${260 - t * 20}, 60%, ${16 + t * 10}%)`;
         const midColor = `hsl(${210 - t * 10}, 70%, ${20 + t * 20}%)`;
         const bottomColor = `hsl(${190}, 80%, ${10 + t * 15}%)`;
@@ -485,10 +513,11 @@
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, this.width, this.height);
 
-        // "haze" mística
         ctx.fillStyle = "rgba(255,255,255,0.06)";
         for (let i = 0; i < 3; i++) {
-          const y = (this.height / 4) * i + (h * 0.01 * (i + 1) % this.height);
+          const y =
+            (this.height / 4) * i +
+            ((h * 0.01 * (i + 1)) % this.height);
           ctx.beginPath();
           ctx.ellipse(
             this.width / 2,
@@ -516,15 +545,11 @@
       draw() {
         this.drawBackground();
 
-        // Plataformas
         for (const p of this.platforms) {
           p.draw(this.ctx);
         }
 
-        // Jugador
         this.player.draw(this.ctx);
-
-        // HUD
         this.drawHud();
       }
 
@@ -533,7 +558,6 @@
         let dt = (timestamp - this.lastTime) / 1000;
         this.lastTime = timestamp;
 
-        // cap de dt para evitar saltos locos
         if (dt > 0.035) dt = 0.035;
 
         this.update(dt);
@@ -543,7 +567,6 @@
       }
     }
 
-    // ==== Boot ====
     const canvas = document.getElementById("game");
     const game = new Game(canvas);
     requestAnimationFrame(game.loop.bind(game));
