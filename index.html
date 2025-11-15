@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Ascensión Infinita – Gusano v3</title>
+  <title>Ascensión Infinita – Gusano v4</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <style>
     body {
@@ -74,11 +74,11 @@
       vy: 0,
     };
 
-    // FÍSICA AJUSTADA
-    const GRAVITY = -0.55;        // un poco más de gravedad pero controlable
-    const JUMP_SPEED = 14.2;      // salto algo más fuerte
-    let HORIZ_SPEED_MAX = 6.0;    // base de velocidad horizontal
-    const FRICTION_AIR = 0.015;   // menos fricción = responde más al tilt
+    // FÍSICA SUAVIZADA (parecida a la inicial)
+    const GRAVITY = -0.5;
+    const JUMP_SPEED = 13.8;
+    let HORIZ_SPEED_MAX = 5.0;
+    const FRICTION_AIR = 0.02;
 
     const platforms = [];
     const BASE_PLATFORM_WIDTH = 80;
@@ -87,6 +87,12 @@
     let tiltControlActive = false;
     let tiltX = 0; // -1..1
     const keys = { left: false, right: false };
+
+    // --- SPRITE DEL GUSANO (opcional) ---
+    const wormSprite = new Image();
+    let wormSpriteLoaded = false;
+    wormSprite.onload = () => { wormSpriteLoaded = true; };
+    wormSprite.src = "gusano.png"; // pon aquí tu sprite PNG (mismo root que index.html)
 
     function difficultyFactor() {
       return Math.min(maxHeight / 1500, 3);
@@ -264,15 +270,15 @@
       const factor = dt / 16;
 
       const diff = difficultyFactor();
-      HORIZ_SPEED_MAX = 6.0 + diff * 0.9;
+      HORIZ_SPEED_MAX = 5.0 + diff * 0.7; // sube un poco con la altura
 
       let inputX = 0;
       if (tiltControlActive) inputX += tiltX;
       if (keys.left) inputX -= 1;
       if (keys.right) inputX += 1;
 
-      // más influencia del input
-      player.vx += inputX * 1.1 * factor;
+      // influencia moderada del input (más suave)
+      player.vx += inputX * 0.8 * factor;
       player.vx *= (1 - FRICTION_AIR * factor);
 
       if (player.vx > HORIZ_SPEED_MAX) player.vx = HORIZ_SPEED_MAX;
@@ -289,13 +295,10 @@
       for (const p of platforms) {
         if (p.type === "moving") {
           p.x += p.vx * factor;
-          if (p.x < 10 || p.x + p.w > W - 10) {
-            p.vx *= -1;
-          }
+          if (p.x < 10 || p.x + p.w > W - 10) p.vx *= -1;
         }
       }
 
-      // colisión con plataformas al caer
       if (player.vy <= 0) {
         for (const p of platforms) {
           const top = p.y + p.h;
@@ -331,29 +334,25 @@
       addPlatformsAboveIfNeeded();
     }
 
-    // 🐛 DIBUJO DEL GUSANO
-    function drawWorm(px, pyScreen) {
+    // 🐛 GUSANO VECTORIAL (fallback si no hay sprite)
+    function drawWormVector(px, pyScreen) {
       const r = player.radius;
 
-      // nivel de estiramiento según velocidad vertical
       let stretch = 0;
       if (player.vy > 1) {
-        // saltando hacia arriba → largo
-        stretch = Math.min(player.vy / 12, 1); // 0..1
+        stretch = Math.min(player.vy / 12, 1);
       } else if (player.vy < -2) {
-        // cayendo rápido → algo estirado pero menos
         stretch = Math.min(Math.abs(player.vy) / 18, 0.6);
       }
 
       const baseHeight = r * 1.6;
       const extraHeight = r * 2.2 * stretch;
       const bodyHeight = baseHeight + extraHeight;
-      const bodyWidth = r * (1.6 - 0.4 * stretch); // más delgado al estirarse
+      const bodyWidth = r * (1.6 - 0.4 * stretch);
 
       ctx.save();
       ctx.translate(px, pyScreen);
 
-      // cuerpo (cápsula vertical)
       const hw = bodyWidth / 2;
       const hh = bodyHeight / 2;
 
@@ -378,7 +377,6 @@
       ctx.strokeStyle = "#ff99bb";
       ctx.stroke();
 
-      // carita en la parte superior del gusano
       const faceY = -hh * 0.4;
       ctx.fillStyle = "#ffffff";
       ctx.beginPath();
@@ -393,6 +391,41 @@
       ctx.stroke();
 
       ctx.restore();
+    }
+
+    // Dibujo del gusano: si hay sprite lo usamos, si no, vector
+    function drawWorm(px, pyScreen) {
+      const r = player.radius;
+
+      // mismo "stretch" que en el vector para estirar el sprite
+      let stretch = 0;
+      if (player.vy > 1) {
+        stretch = Math.min(player.vy / 12, 1);
+      } else if (player.vy < -2) {
+        stretch = Math.min(Math.abs(player.vy) / 18, 0.6);
+      }
+
+      const baseHeight = r * 1.6;
+      const extraHeight = r * 2.2 * stretch;
+      const bodyHeight = baseHeight + extraHeight;
+      const bodyWidth = r * (1.6 - 0.4 * stretch);
+
+      if (wormSpriteLoaded) {
+        const scaleX = bodyWidth / wormSprite.width;
+        const scaleY = bodyHeight / wormSprite.height;
+
+        ctx.save();
+        ctx.translate(px, pyScreen);
+        ctx.scale(scaleX, scaleY);
+        ctx.drawImage(
+          wormSprite,
+          -wormSprite.width / 2,
+          -wormSprite.height / 2
+        );
+        ctx.restore();
+      } else {
+        drawWormVector(px, pyScreen);
+      }
     }
 
     function draw() {
@@ -454,7 +487,6 @@
       const px = player.x;
       const pyScreen = worldToScreenY(player.y);
 
-      // halo suave
       ctx.beginPath();
       ctx.arc(px, pyScreen, player.radius + 10, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(255,255,255,0.05)";
@@ -497,8 +529,8 @@
 
     function handleOrientation(event) {
       const gamma = event.gamma || 0;
-      // más sensible: dividir entre 10 → se siente más rápido al inclinar
-      let norm = gamma / 10;
+      // sensibilidad SUAVE (como la primera): /18
+      let norm = gamma / 18;
       if (norm > 1) norm = 1;
       if (norm < -1) norm = -1;
       tiltX = norm;
