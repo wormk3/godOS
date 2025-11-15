@@ -1,187 +1,287 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gusano Saltarín - Como Doodle Jump</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Gusano 3D Jump - @guilbardoX</title>
     <style>
         body {
             margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #f0f0f0;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #87CEEB, #E0F7FA);
+            font-family: 'Arial', sans-serif;
         }
         canvas {
-            border: 1px solid #000;
-            background-color: #fff;
+            display: block;
         }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(0,0,0,0.5);
+            z-index: 100;
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 30px 50px;
+            border-radius: 20px;
+            text-align: center;
+            font-size: 28px;
+            display: none;
+            z-index: 200;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        button:hover { background: #45a049; }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <div id="ui">Puntuación: <span id="score">0</span></div>
+    <div id="gameOver">
+        <h2>¡Game Over!</h2>
+        <p>Puntuación: <span id="finalScore">0</span></p>
+        <button onclick="restartGame()">Jugar de Nuevo</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.167.1/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.167.1/examples/js/controls/PointerLockControls.js"></script>
+
     <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
+        // Escena, cámara, renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
 
-        // Configuración del juego
-        const GRAVITY = 0.5;
-        const JUMP_SPEED = -15;
-        const PLATFORM_SPEED = 2;
-        const PLATFORM_WIDTH = 80;
-        const PLATFORM_HEIGHT = 10;
-        const WORM_SIZE = 20; // Tamaño cuando enrollado (círculo)
+        // Iluminación
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(10, 20, 10);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.camera.left = -50;
+        directionalLight.shadow.camera.right = 50;
+        directionalLight.shadow.camera.top = 50;
+        directionalLight.shadow.camera.bottom = -50;
+        scene.add(directionalLight);
 
-        // Variables del gusano
-        let wormX = canvas.width / 2;
-        let wormY = canvas.height / 2;
-        let wormVelocityY = 0;
-        let wormVelocityX = 0;
-        let isUncoiled = false; // Estado: enrollado o desenrollado
-        let uncoilTimer = 0; // Temporizador para volver a enrollarse
+        // Fondo (cielo)
+        scene.background = new THREE.Color(0x87CEEB);
 
-        // Plataformas
+        // Gusano
+        let worm = new THREE.Group();
+        const wormCoiled = new THREE.Mesh(
+            new THREE.SphereGeometry(1.2, 16, 16),
+            new THREE.MeshPhongMaterial({ color: 0x00ff00, shininess: 100 })
+        );
+        const wormUncoiled = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.5, 0.5, 5, 16),
+            new THREE.MeshPhongMaterial({ color: 0x00cc00, shininess: 80 })
+        );
+        wormUncoiled.rotation.x = Math.PI / 2;
+        wormUncoiled.position.y = 1.5;
+        wormUncoiled.visible = false;
+
+        worm.add(wormCoiled);
+        worm.add(wormUncoiled);
+        worm.position.y = 5;
+        worm.castShadow = true;
+        scene.add(worm);
+
+        // Variables del juego
+        const gravity = 0.05;
+        const jumpPower = 1.8;
+        let velocityY = 0;
+        let velocityX = 0;
+        let isJumping = false;
+        let isUncoiled = false;
+        let uncoilTime = 0;
+
         let platforms = [];
         let score = 0;
         let gameOver = false;
+        let cameraOffsetY = 8;
 
-        // Generar plataformas iniciales
-        function generatePlatforms() {
-            platforms = [];
-            for (let i = 0; i < 10; i++) {
-                platforms.push({
-                    x: Math.random() * (canvas.width - PLATFORM_WIDTH),
-                    y: canvas.height - (i * 80) - 50
-                });
-            }
-        }
-
-        // Dibujar el gusano
-        function drawWorm() {
-            ctx.fillStyle = '#00ff00'; // Color verde para el gusano
-            if (isUncoiled) {
-                // Desenrollado: dibuja como una línea vertical
-                ctx.fillRect(wormX - 5, wormY - WORM_SIZE * 2, 10, WORM_SIZE * 4);
-            } else {
-                // Enrollado: dibuja como un círculo
-                ctx.beginPath();
-                ctx.arc(wormX, wormY, WORM_SIZE, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-
-        // Dibujar plataformas
-        function drawPlatforms() {
-            ctx.fillStyle = '#0000ff'; // Azul para plataformas
-            platforms.forEach(platform => {
-                ctx.fillRect(platform.x, platform.y, PLATFORM_WIDTH, PLATFORM_HEIGHT);
+        // Generar plataformas
+        function createPlatform(x, y, z) {
+            const geometry = new THREE.BoxGeometry(6 + Math.random() * 4, 0.5, 6);
+            const material = new THREE.MeshPhongMaterial({
+                color: 0x8B4513 + Math.floor(Math.random() * 0x333333),
+                emissive: 0x222222
             });
+            const platform = new THREE.Mesh(geometry, material);
+            platform.position.set(x, y, z);
+            platform.receiveShadow = true;
+            platform.castShadow = true;
+            scene.add(platform);
+            platforms.push({ mesh: platform, broken: false });
+            return platform;
         }
 
-        // Actualizar posición del gusano
-        function updateWorm() {
-            wormVelocityY += GRAVITY;
-            wormY += wormVelocityY;
-            wormX += wormVelocityX;
-
-            // Mantener dentro de los bordes laterales
-            if (wormX < 0) wormX = 0;
-            if (wormX > canvas.width - WORM_SIZE * 2) wormX = canvas.width - WORM_SIZE * 2;
-
-            // Caída por debajo de la pantalla = game over
-            if (wormY > canvas.height) {
-                gameOver = true;
+        function initPlatforms() {
+            platforms.forEach(p => scene.remove(p.mesh));
+            platforms = [];
+            for (let i = 0; i < 15; i++) {
+                const x = (Math.random() - 0.5) * 30;
+                const z = (Math.random() - 0.5) * 30;
+                const y = i * 5;
+                createPlatform(x, y, z);
             }
+            worm.position.set(0, 8, 0);
+            velocityY = 0;
+            velocityX = 0;
+            score = 0;
+            updateScore();
+        }
 
-            // Temporizador para enrollarse de nuevo
+        // Controles
+        const keys = {};
+        window.addEventListener('keydown', e => keys[e.key] = true);
+        window.addEventListener('keyup', e => keys[e.key] = false);
+
+        // Controles táctiles
+        let touchStartX = 0;
+        renderer.domElement.addEventListener('touchstart', e => {
+            touchStartX = e.touches[0].clientX;
+        });
+        renderer.domElement.addEventListener('touchmove', e => {
+            const deltaX = e.touches[0].clientX - touchStartX;
+            velocityX = deltaX * 0.0005;
+        });
+
+        // Actualización del juego
+        function updateWorm() {
+            if (gameOver) return;
+
+            // Movimiento horizontal
+            if (keys['ArrowLeft'] || keys['a']) velocityX = -0.3;
+            else if (keys['ArrowRight'] || keys['d']) velocityX = 0.3;
+            else velocityX *= 0.9;
+
+            worm.position.x += velocityX;
+
+            // Gravedad
+            velocityY -= gravity;
+            worm.position.y += velocityY;
+
+            // Desenrollar al saltar
             if (isUncoiled) {
-                uncoilTimer--;
-                if (uncoilTimer <= 0) {
+                uncoilTime--;
+                if (uncoilTime <= 0) {
                     isUncoiled = false;
+                    wormCoiled.visible = true;
+                    wormUncoiled.visible = false;
                 }
             }
-        }
 
-        // Mover plataformas hacia abajo
-        function updatePlatforms() {
-            if (wormVelocityY < 0) { // Solo mover si el gusano está subiendo
-                platforms.forEach(platform => {
-                    platform.y += -wormVelocityY / 5; // Ajuste de velocidad
+            // Colisión con plataformas
+            platforms.forEach(p => {
+                if (p.broken) return;
+                const box = new THREE.Box3().setFromObject(p.mesh);
+                const wormBox = new THREE.Box3().setFromObject(worm);
+                if (wormBox.intersectsBox(box) && velocityY < 0 && worm.position.y > p.mesh.position.y + 1) {
+                    velocityY = jumpPower;
+                    isUncoiled = true;
+                    uncoilTime = 20;
+                    wormCoiled.visible = false;
+                    wormUncoiled.visible = true;
+
+                    // Romper plataforma (efecto visual)
+                    setTimeout(() => {
+                        p.mesh.material.color.set(0x555555);
+                        p.broken = true;
+                    }, 100);
+                }
+            });
+
+            // Caída = game over
+            if (worm.position.y < -20) {
+                endGame();
+            }
+
+            // Puntuación
+            if (worm.position.y > score) {
+                score = Math.floor(worm.position.y);
+                updateScore();
+            }
+
+            // Mover plataformas hacia abajo
+            if (velocityY < 0) {
+                platforms.forEach(p => {
+                    p.mesh.position.y -= velocityY * 0.3;
                 });
-                score += Math.abs(wormVelocityY / 5);
             }
 
-            // Eliminar plataformas fuera de pantalla y generar nuevas
-            platforms = platforms.filter(platform => platform.y < canvas.height);
-            while (platforms.length < 10) {
-                const lastY = platforms.length > 0 ? platforms[platforms.length - 1].y : 0;
-                platforms.push({
-                    x: Math.random() * (canvas.width - PLATFORM_WIDTH),
-                    y: lastY - (Math.random() * 50 + 50)
-                });
+            // Generar nuevas plataformas
+            platforms = platforms.filter(p => p.mesh.position.y > worm.position.y - 30);
+            while (platforms.length < 15) {
+                const lastY = platforms.length ? platforms[platforms.length - 1].mesh.position.y : worm.position.y;
+                const x = (Math.random() - 0.5) * 35;
+                const z = (Math.random() - 0.5) * 35;
+                createPlatform(x, lastY + 6 + Math.random() * 4, z);
             }
         }
 
-        // Verificar colisiones con plataformas
-        function checkCollisions() {
-            if (wormVelocityY > 0) { // Solo colisionar cuando cayendo
-                platforms.forEach(platform => {
-                    if (
-                        wormX + WORM_SIZE > platform.x &&
-                        wormX < platform.x + PLATFORM_WIDTH &&
-                        wormY + WORM_SIZE > platform.y &&
-                        wormY + WORM_SIZE < platform.y + PLATFORM_HEIGHT + 5
-                    ) {
-                        wormVelocityY = JUMP_SPEED;
-                        isUncoiled = true; // Desenrollar al saltar
-                        uncoilTimer = 30; // Tiempo desenrollado (frames)
-                    }
-                });
-            }
+        function updateCamera() {
+            camera.position.x = worm.position.x * 0.3;
+            camera.position.y = worm.position.y + cameraOffsetY;
+            camera.position.z = 15;
+            camera.lookAt(worm.position.x, worm.position.y + 2, 0);
         }
 
-        // Dibujar puntuación
-        function drawScore() {
-            ctx.fillStyle = '#000';
-            ctx.font = '20px Arial';
-            ctx.fillText(`Puntuación: ${Math.floor(score)}`, 10, 30);
+        function updateScore() {
+            document.getElementById('score').textContent = score;
         }
 
-        // Bucle principal del juego
-        function gameLoop() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            if (!gameOver) {
-                updateWorm();
-                updatePlatforms();
-                checkCollisions();
-                drawPlatforms();
-                drawWorm();
-                drawScore();
-            } else {
-                ctx.fillStyle = '#ff0000';
-                ctx.font = '30px Arial';
-                ctx.fillText('Game Over', canvas.width / 2 - 100, canvas.height / 2);
-                ctx.fillText(`Puntuación: ${Math.floor(score)}`, canvas.width / 2 - 120, canvas.height / 2 + 40);
-            }
-
-            requestAnimationFrame(gameLoop);
+        function endGame() {
+            gameOver = true;
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameOver').style.display = 'block';
         }
 
-        // Controles del teclado
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowLeft') wormVelocityX = -5;
-            if (e.key === 'ArrowRight') wormVelocityX = 5;
+        function restartGame() {
+            document.getElementById('gameOver').style.display = 'none';
+            gameOver = false;
+            initPlatforms();
+        }
+
+        // Responsive
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        document.addEventListener('keyup', (e) => {
-            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') wormVelocityX = 0;
-        });
+        // Bucle principal
+        function animate() {
+            requestAnimationFrame(animate);
+            updateWorm();
+            updateCamera();
+            renderer.render(scene, camera);
+        }
 
-        // Iniciar el juego
-        generatePlatforms();
-        gameLoop();
+        // Iniciar
+        initPlatforms();
+        animate();
     </script>
 </body>
 </html>
