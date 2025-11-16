@@ -9,9 +9,6 @@
       --bg-body: #050510;
       --hud-color: #ffe9a6;
       --accent: #ff5bd4;
-      --accent-dark: #7c2bb0;
-      --ground-top: #37c95e;
-      --ground-side: #168437;
     }
     * { box-sizing: border-box; padding:0; margin:0; }
     body {
@@ -32,12 +29,14 @@
       text-transform:uppercase;
       color: var(--hud-color);
       text-shadow:0 0 8px rgba(0,0,0,0.9);
+      text-align:center;
     }
     #info {
       font-size:11px;
       opacity:0.8;
       margin-bottom:6px;
       text-align:center;
+      max-width:360px;
     }
     #hud {
       margin:4px 0 6px 0;
@@ -103,7 +102,8 @@
 <body>
   <h1>ASCENSIÓN INFINITA</h1>
   <div id="info">
-    MÓVIL: Inclina el celular para moverte · PC: Flechas ← → · Rebotas en plataformas y subes sin límite
+    MÓVIL: Toca lado izquierdo/derecho de la pantalla para moverte ·
+    PC: Flechas ← → · Rebotas en plataformas y subes sin límite
   </div>
   <div id="hud">
     Altura: <span id="hudAlt">0</span> m · Mejor: <span id="hudBest">0</span> m
@@ -115,8 +115,8 @@
     <div id="overlay-box">
       <h2>Wormk listo para saltar 🌱</h2>
       <p>
-        Toca el botón para activar los sensores de movimiento en tu iPhone
-        y empezar a subir desde el Jardín Neón.
+        Toca en cualquier parte de la pantalla para empezar.<br>
+        Luego toca a la <b>izquierda</b> o <b>derecha</b> para mover a Wormk.
       </p>
       <button id="btnStart">Empezar</button>
     </div>
@@ -138,7 +138,7 @@
     // Mundo base
     const GRAVITY = 1900;
     const JUMP_VY = -900;
-    const MAX_HSPEED = 320;
+    const MAX_HSPEED = 280;
     const PLATFORM_WIDTH = 85;
     const PLATFORM_HEIGHT = 14;
     const PLATFORM_COUNT = 12;
@@ -159,9 +159,9 @@
     let lastTime = 0;
     let started = false;
 
-    // Tilt
-    let tiltX = 0;
-    const TILT_STRENGTH = 90; // más bajo = menos sensibilidad
+    // Input por toque / click
+    // -1 izquierda, 0 nada, 1 derecha
+    let inputDir = 0;
 
     // --------- INIT WORLD ----------
 
@@ -195,56 +195,67 @@
 
     resetWorld();
 
-    // --------- INPUT ---------
+    // --------- INPUT: TAP / CLICK / TECLADO ----------
 
-    function handleTilt(event) {
-      // iOS portrait suele tener X horizontal; si está invertido, cambiamos signo
-      const ax = event.accelerationIncludingGravity.x || 0;
-      // Queremos que inclinar a la izquierda mueva a la izquierda
-      tiltX = -ax;
-    }
-
-    function setupMotion() {
-      // Manejo especial para iOS (permiso)
-      if (typeof DeviceMotionEvent !== 'undefined' &&
-          typeof DeviceMotionEvent.requestPermission === 'function') {
-        DeviceMotionEvent.requestPermission()
-          .then(response => {
-            if (response === 'granted') {
-              window.addEventListener('devicemotion', handleTilt);
-              startGame();
-            } else {
-              // Sin permiso: el juego sigue, pero solo con teclado
-              startGame();
-            }
-          })
-          .catch(() => startGame());
-      } else {
-        // Android o navegadores sin permiso explícito
-        window.addEventListener('devicemotion', handleTilt);
+    function handlePointerDown(clientX) {
+      // Si aún no ha empezado, primer tap = start
+      if (!started) {
+        overlay.style.display = 'none';
         startGame();
       }
+      // calcular respecto al centro del canvas
+      const rect = canvas.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const center = rect.width / 2;
+
+      if (x < center * 0.9) {
+        inputDir = -1; // izquierda
+      } else if (x > center * 1.1) {
+        inputDir = 1; // derecha
+      } else {
+        // zona centro: no cambiar o podríamos alternar dirección
+        inputDir = 0;
+      }
     }
 
+    function handlePointerUp() {
+      inputDir = 0;
+    }
+
+    // Eventos de ratón
+    canvas.addEventListener('mousedown', e => {
+      handlePointerDown(e.clientX);
+    });
+    window.addEventListener('mouseup', handlePointerUp);
+
+    // Eventos táctiles
+    canvas.addEventListener('touchstart', e => {
+      const touch = e.touches[0];
+      handlePointerDown(touch.clientX);
+      e.preventDefault();
+    }, { passive: false });
+
+    window.addEventListener('touchend', e => {
+      handlePointerUp();
+    });
+
+    // Teclado para PC
     document.addEventListener('keydown', e => {
-      if (!started) return;
-      if (e.key === 'ArrowLeft') {
-        player.vx = -MAX_HSPEED;
-      } else if (e.key === 'ArrowRight') {
-        player.vx = MAX_HSPEED;
+      if (!started && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        overlay.style.display = 'none';
+        startGame();
       }
+      if (e.key === 'ArrowLeft') inputDir = -1;
+      if (e.key === 'ArrowRight') inputDir = 1;
     });
     document.addEventListener('keyup', e => {
-      if (!started) return;
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        player.vx = 0;
-      }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') inputDir = 0;
     });
 
     btnStart.addEventListener('click', () => {
       if (!started) {
         overlay.style.display = 'none';
-        setupMotion();
+        startGame();
       }
     });
 
@@ -273,14 +284,13 @@
       if (!started || !player.alive) return;
 
       // Movimiento horizontal
-      if (Math.abs(tiltX) > 0.05) {
-        player.vx += tiltX * TILT_STRENGTH * dt;
+      if (inputDir !== 0) {
+        player.vx = inputDir * MAX_HSPEED;
       } else {
-        // pequeña fricción cuando no hay tilt
-        player.vx *= 0.9;
+        // fricción cuando no hay input
+        player.vx *= 0.85;
+        if (Math.abs(player.vx) < 5) player.vx = 0;
       }
-      if (player.vx > MAX_HSPEED) player.vx = MAX_HSPEED;
-      if (player.vx < -MAX_HSPEED) player.vx = -MAX_HSPEED;
 
       player.x += player.vx * dt;
 
@@ -302,7 +312,7 @@
         for (const p of platforms) {
           if (
             pyBottom > p.y &&
-            pyBottom < p.y + p.h + 10 && // pequeño margen
+            pyBottom < p.y + p.h + 10 && // margen
             pxRight > p.x &&
             pxLeft < p.x + p.w
           ) {
@@ -341,7 +351,6 @@
       if (player.y - player.radius > H + 40) {
         player.alive = false;
         if (player.maxHeight > bestHeight) bestHeight = player.maxHeight;
-        // Reinicio suave
         setTimeout(() => {
           resetWorld();
           started = false;
@@ -384,7 +393,7 @@
       drawHill(W * 0.2, H * 0.9, 260, "38, 20, 60", 0.9);
       drawHill(W * 0.8, H * 0.9, 230, "20, 18, 65", 0.9);
 
-      // Árboles gorditos (troncos)
+      // Árboles gorditos 2D
       function drawTree(x, baseY, height, width) {
         ctx.save();
         ctx.translate(x, baseY);
@@ -397,7 +406,6 @@
         ctx.closePath();
         ctx.fill();
 
-        // brillo suave
         const lg = ctx.createLinearGradient(-width * 0.2, -height * 0.7, width * 0.2, 0);
         lg.addColorStop(0, "rgba(110,78,133,0.0)");
         lg.addColorStop(0.4, "rgba(148,102,189,0.25)");
@@ -429,18 +437,17 @@
     }
 
     function drawGroundAndHouse() {
-      // Ground 3D tipo Mario
       const groundHeight = 70;
       const yTop = H - groundHeight;
 
-      // parte frontal
+      // suelo
       const gradFront = ctx.createLinearGradient(0, yTop, 0, H);
       gradFront.addColorStop(0, "#1f8e3b");
       gradFront.addColorStop(1, "#115224");
       ctx.fillStyle = gradFront;
       ctx.fillRect(0, yTop, W, groundHeight);
 
-      // borde superior (hojas)
+      // borde hojas
       const leafGrad = ctx.createLinearGradient(0, yTop - 10, 0, yTop + 10);
       leafGrad.addColorStop(0, "#7dffae");
       leafGrad.addColorStop(0.5, "#37d864");
@@ -455,16 +462,15 @@
         ctx.fill();
       }
 
-      // Casa estilo Mario neón
+      // Casa 2D estilo cartoon
       const houseWidth = 90;
       const houseHeight = 70;
       const hx = W * 0.22;
       const hy = yTop - houseHeight + 6;
 
-      // cuerpo
       const bodyGrad = ctx.createLinearGradient(hx, hy, hx, hy + houseHeight);
-      bodyGrad.addColorStop(0, "#ff99e3");
-      bodyGrad.addColorStop(1, "#ff4f90");
+      bodyGrad.addColorStop(0, "#ffb6ff");
+      bodyGrad.addColorStop(1, "#ff5aa4");
       ctx.fillStyle = bodyGrad;
       const radius = 12;
       ctx.beginPath();
@@ -505,7 +511,7 @@
       ctx.lineTo(hx + houseWidth / 2 + 8, hy + 8);
       ctx.closePath();
       const roofGrad = ctx.createLinearGradient(hx, roofY, hx, hy + 8);
-      roofGrad.addColorStop(0, "#fffb9a");
+      roofGrad.addColorStop(0, "#fffba8");
       roofGrad.addColorStop(1, "#ff8b5b");
       ctx.fillStyle = roofGrad;
       ctx.fill();
@@ -516,7 +522,6 @@
 
     function drawPlatforms() {
       for (const p of platforms) {
-        // 3D block style
         const topGrad = ctx.createLinearGradient(p.x, p.y, p.x, p.y + PLATFORM_HEIGHT);
         topGrad.addColorStop(0, "#f7cfff");
         topGrad.addColorStop(0.4, "#c580ff");
@@ -534,8 +539,7 @@
         ctx.closePath();
         ctx.fill();
 
-        // sombrita
-        ctx.fillStyle = "rgba(0,0,0,0.4)";
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
         ctx.fillRect(p.x + 3, p.y + PLATFORM_HEIGHT - 2, p.w - 6, 4);
       }
     }
@@ -545,7 +549,6 @@
       ctx.save();
       ctx.translate(player.x, player.y);
 
-      // glow exterior
       const glow = ctx.createRadialGradient(0, 0, r * 0.3, 0, 0, r * 2);
       glow.addColorStop(0, "rgba(255, 255, 200, 0.75)");
       glow.addColorStop(0.5, "rgba(255, 91, 212, 0.5)");
@@ -555,7 +558,6 @@
       ctx.arc(0, 0, r * 2, 0, Math.PI * 2);
       ctx.fill();
 
-      // cuerpo
       const bodyGrad = ctx.createLinearGradient(-r, -r, r, r);
       bodyGrad.addColorStop(0, "#fff6c7");
       bodyGrad.addColorStop(0.4, "#ffe08b");
@@ -565,19 +567,16 @@
       ctx.arc(0, 0, r, 0, Math.PI * 2);
       ctx.fill();
 
-      // borde
       ctx.lineWidth = 3;
       ctx.strokeStyle = "rgba(80, 20, 90, 0.9)";
       ctx.stroke();
 
-      // ojitos kawaii
       ctx.fillStyle = "#3b163b";
       ctx.beginPath();
       ctx.arc(-r * 0.35, -r * 0.15, 2.4, 0, Math.PI * 2);
       ctx.arc(r * 0.35, -r * 0.15, 2.4, 0, Math.PI * 2);
       ctx.fill();
 
-      // boca
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(0, r * 0.1, r * 0.35, 0.15 * Math.PI, 0.85 * Math.PI);
