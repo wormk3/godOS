@@ -99,10 +99,10 @@
     let bestHeight = 0;
 
     const world = {
-      gravity: 0.4,            // un poco más fuerte
-      baseJumpVel: -8.5,       // salto un pelín más alto
+      gravity: 0.4,
+      baseJumpVel: -8.5,
       maxVX: 2.4,
-      friction: 0.9,           // se usa con dt
+      friction: 0.9,
       scrollY: 0,
       heightMeters: 0,
       zoneName: "Jardín",
@@ -414,13 +414,12 @@
         moveRight = tmp;
       }
 
-      const accel = 0.26; // un poco más rápido
+      const accel = 0.26;
       if (moveLeft && !moveRight) {
         player.vx -= accel * dt * 60;
       } else if (moveRight && !moveLeft) {
         player.vx += accel * dt * 60;
       } else {
-        // fricción con dt
         const frictionPerFrame = world.friction;
         const friction = Math.pow(frictionPerFrame, dt * 60);
         player.vx *= friction;
@@ -742,28 +741,64 @@
       }
     }
 
+    // --------- FLECHAS POWER-UP (antes orbes) ---------
     function drawPowerUps() {
       for (const pu of powerUps) {
         ctx.save();
         ctx.translate(pu.x, pu.y);
-        const r = pu.r;
-        const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 2.3);
-        glow.addColorStop(0, "rgba(0,255,200,0.9)");
-        glow.addColorStop(1, "rgba(0,255,200,0)");
+
+        const base = pu.r * 3;       // altura aprox. de la flecha
+        const h = base;
+        const w = base * 0.7;
+
+        // Glow verde neón
+        const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, h * 0.9);
+        glow.addColorStop(0, "rgba(0,255,170,0.9)");
+        glow.addColorStop(1, "rgba(0,255,170,0)");
         ctx.fillStyle = glow;
         ctx.beginPath();
-        ctx.arc(0, 0, r * 2.3, 0, Math.PI * 2);
+        ctx.arc(0, 0, h * 0.9, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.fillStyle = "#00ffe0";
-        ctx.beginPath();
-        ctx.arc(0, 0, r, 0, Math.PI * 2);
-        ctx.fill();
+        // Flecha principal
+        const gradArrow = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+        gradArrow.addColorStop(0, "#b8fff0");
+        gradArrow.addColorStop(0.4, "#66ffcc");
+        gradArrow.addColorStop(1, "#00cc66");
 
-        ctx.fillStyle = "rgba(255,255,255,0.8)";
         ctx.beginPath();
-        ctx.arc(-r * 0.3, -r * 0.3, r * 0.4, 0, Math.PI * 2);
+        // punta
+        ctx.moveTo(0, -h / 2);
+        ctx.lineTo(-w / 2, -h / 6);
+        ctx.lineTo(-w / 6, -h / 6);
+        // cuerpo
+        ctx.lineTo(-w / 6, h / 2);
+        ctx.lineTo(w / 6, h / 2);
+        ctx.lineTo(w / 6, -h / 6);
+        ctx.lineTo(w / 2, -h / 6);
+        ctx.closePath();
+
+        ctx.fillStyle = gradArrow;
+        ctx.strokeStyle = "#003322";
+        ctx.lineWidth = 1.5;
         ctx.fill();
+        ctx.stroke();
+
+        // Textura de energía vertical
+        ctx.save();
+        ctx.clip();
+        ctx.strokeStyle = "rgba(255,255,255,0.5)";
+        ctx.lineWidth = 0.9;
+        const lines = 3;
+        for (let i = 0; i < lines; i++) {
+          const lx = (-w / 6) + (i * w) / (lines - 1) / 3;
+          ctx.beginPath();
+          ctx.moveTo(lx, h / 2);
+          ctx.lineTo(lx, -h / 6);
+          ctx.stroke();
+        }
+        ctx.restore();
+
         ctx.restore();
       }
     }
@@ -864,8 +899,7 @@
     }
 
     function gameLoop(timestamp) {
-      // dt en "frames": 1 ≈ 60fps
-      const dt = Math.min((timestamp - lastTime) / 1000, 0.05); // máx ~50ms
+      const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
       lastTime = timestamp;
 
       update(dt);
