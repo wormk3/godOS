@@ -107,12 +107,12 @@
       zoneName: "Jardín",
       controlsInverted: false,
       invertTimer: 0,
-      jumpBoostTimer: 0   // tiempo restante del potenciador de salto
+      jumpBoostTimer: 0,        // tiempo restante del buff
+      jumpBoostMultiplier: 1.0  // multiplicador actual del salto
     };
 
     function currentJumpVel() {
-      // Si hay potenciador, salto más fuerte
-      return world.jumpBoostTimer > 0 ? world.baseJumpVel * 1.7 : world.baseJumpVel;
+      return world.baseJumpVel * (world.jumpBoostMultiplier || 1);
     }
 
     const player = {
@@ -136,7 +136,7 @@
     let meteorTimer = 0;
     let blackHoleTimer = 0;
 
-    // Power-ups (orbes de salto)
+    // Power-ups
     let powerUps = [];
 
     function resizeCanvas() {
@@ -145,7 +145,7 @@
       canvas.width = frame.width * dpr;
       canvas.height = frame.height * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.imageSmoothingEnabled = false; // look pixel
+      ctx.imageSmoothingEnabled = false;
     }
 
     function getZone(heightM) {
@@ -229,7 +229,7 @@
         plat.rangeMax = VW - PLATFORM_WIDTH - 10;
       }
 
-      // Posible power-up en plataformas fuera del Jardín
+      // Power-up en algunas plataformas (excepto en Jardín)
       if (zone.key !== "garden" && Math.random() < 0.18) {
         powerUps.push({
           x: x + PLATFORM_WIDTH / 2,
@@ -262,6 +262,8 @@
       world.controlsInverted = false;
       world.invertTimer = 0;
       world.jumpBoostTimer = 0;
+      world.jumpBoostMultiplier = 1.0;
+
       meteorites.length = 0;
       blackHoles.length = 0;
       meteorTimer = 0;
@@ -292,7 +294,6 @@
     document.addEventListener("keydown", (e) => handleKeyboard(e, true));
     document.addEventListener("keyup", (e) => handleKeyboard(e, false));
 
-    // Táctil: mitad izquierda/derecha
     function updateTouch(e) {
       e.preventDefault();
       if (e.touches.length === 0) {
@@ -330,7 +331,7 @@
     function spawnMeteorite() {
       const side = Math.random() < 0.5 ? "left" : "right";
       const y = 20 + Math.random() * (VH * 0.6);
-      const speed = 0.8 + Math.random() * 0.7; // más lentos
+      const speed = 0.8 + Math.random() * 0.7;
       const vy = 0.08 + Math.random() * 0.18;
       const x = side === "left" ? -20 : VW + 20;
       const vx = side === "left" ? speed : -speed;
@@ -358,7 +359,7 @@
       meteorTimer += dt;
       blackHoleTimer += dt;
 
-      // Meteoritos SOLO en Sistema Solar, entre 2 y 4 en pantalla
+      // Meteoritos en Sistema Solar (2 a 4 máximo)
       if (zone.key === "solar") {
         const minM = 2;
         const maxM = 4;
@@ -374,11 +375,10 @@
           meteorTimer = 0;
         }
       } else {
-        // fuera de la zona, dejamos que se vayan
         meteorTimer = 0;
       }
 
-      // Agujeros negros SOLO en Vía Láctea
+      // Agujeros negros en Vía Láctea
       if (zone.key === "milkyway") {
         if (blackHoleTimer > 4 + Math.random() * 3) {
           spawnBlackHole();
@@ -407,7 +407,7 @@
         }
       }
 
-      // Atracción de agujeros negros
+      // Atracción
       if (zone.key === "milkyway" || zone.key === "virgo" || zone.key === "horizon") {
         for (const b of blackHoles) {
           const dx = b.x - player.x;
@@ -449,16 +449,18 @@
     function update(dt) {
       if (!player.alive) return;
 
-      // Zona actual
       const zone = getZone(world.heightMeters);
 
-      // Temporizador del power-up de salto
+      // Timer de power-up
       if (world.jumpBoostTimer > 0) {
         world.jumpBoostTimer -= dt;
-        if (world.jumpBoostTimer < 0) world.jumpBoostTimer = 0;
+        if (world.jumpBoostTimer <= 0) {
+          world.jumpBoostTimer = 0;
+          world.jumpBoostMultiplier = 1.0; // se acaba el combo
+        }
       }
 
-      // Controles invertidos en Horizonte Cósmico (ocasional)
+      // Controles invertidos en Horizonte Cósmico
       if (zone.key === "horizon") {
         if (!world.controlsInverted && Math.random() < 0.003) {
           world.controlsInverted = true;
@@ -494,7 +496,6 @@
 
       player.x += player.vx;
 
-      // wrap lateral
       if (player.x < -player.r) player.x = VW + player.r;
       if (player.x > VW + player.r) player.x = -player.r;
 
@@ -514,7 +515,7 @@
         }
       }
 
-      // Colisión con plataformas (solo cayendo)
+      // Colisión con plataformas (cayendo)
       if (player.vy > 0) {
         const bottom = player.y + player.r;
         for (const p of platforms) {
@@ -530,7 +531,7 @@
         }
       }
 
-      // Scroll de cámara
+      // Scroll
       const camY = VH * 0.4;
       if (player.y < camY) {
         const diff = camY - player.y;
@@ -541,14 +542,13 @@
         for (const b of blackHoles) b.y += diff;
         for (const pu of powerUps) pu.y += diff;
 
-        // limpiar plataformas abajo
+        // limpiar abajo
         for (let i = platforms.length - 1; i >= 0; i--) {
           if (platforms[i].y > VH + 20) platforms.splice(i, 1);
         }
-        // limpiar power-ups abajo
         powerUps = powerUps.filter((pu) => pu.y < VH + 40 && !pu.taken);
 
-        // generar nuevas arriba
+        // nuevas arriba
         let highestY = Infinity;
         for (const p of platforms) {
           if (p.y < highestY) highestY = p.y;
@@ -561,7 +561,7 @@
         }
       }
 
-      // Colisión con power-ups (pickup)
+      // Colisión con power-ups
       for (const pu of powerUps) {
         if (pu.taken) continue;
         const dx = pu.x - player.x;
@@ -569,18 +569,28 @@
         const rr = pu.r + player.r * 0.6;
         if (dx * dx + dy * dy < rr * rr) {
           pu.taken = true;
-          world.jumpBoostTimer = 6; // 6 segundos de salto potenciado
+          // Combo: cada orbe multiplica por 1.5 el salto actual
+          if (world.jumpBoostTimer > 0) {
+            world.jumpBoostMultiplier *= 1.5;
+          } else {
+            world.jumpBoostMultiplier = 1.5;
+          }
+          // Limitar para no romper el juego
+          if (world.jumpBoostMultiplier > 3.5) {
+            world.jumpBoostMultiplier = 3.5;
+          }
+          world.jumpBoostTimer = 6; // refresca duración
         }
       }
       powerUps = powerUps.filter((pu) => !pu.taken && pu.y < VH + 40);
 
-      // Game over si cae
+      // Game over
       if (player.y - player.r > VH + 10) {
         player.alive = false;
         if (world.scrollY > bestHeight) bestHeight = world.scrollY;
       }
 
-      // Altura y zona
+      // Altura
       const heightMeters = Math.floor(world.scrollY / 10);
       world.heightMeters = heightMeters;
       const zoneNow = getZone(heightMeters);
@@ -594,17 +604,19 @@
       hudBottom.textContent =
         `Altura: ${heightMeters} m · Mejor: ${bestMeters} m` +
         (!player.alive ? " · Toca o presiona ESPACIO para reiniciar" : "");
-      hudTop.textContent =
-        `ASCENSIÓN DE WORMK — Zona: ${zoneNow.name}` +
-        (world.controlsInverted ? " · Controles invertidos" : "") +
-        (world.jumpBoostTimer > 0 ? " · Salto x1.7" : "");
+
+      let topText = `ASCENSIÓN DE WORMK — Zona: ${zoneNow.name}`;
+      if (world.controlsInverted) topText += " · Controles invertidos";
+      if (world.jumpBoostMultiplier > 1.01) {
+        topText += ` · Salto x${world.jumpBoostMultiplier.toFixed(1)}`;
+      }
+      hudTop.textContent = topText;
     }
 
     function drawBackground() {
       const h = world.heightMeters;
       const zone = getZone(h);
 
-      // Degradado base
       const grad = ctx.createLinearGradient(0, 0, 0, VH);
       grad.addColorStop(0, zone.top);
       grad.addColorStop(0.5, zone.mid);
@@ -612,7 +624,6 @@
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, VW, VH);
 
-      // Capas suaves
       ctx.fillStyle = "rgba(255,255,255,0.03)";
       ctx.beginPath();
       ctx.ellipse(VW * 0.5, VH * 0.22, VW * 0.7, VH * 0.3, 0, 0, Math.PI * 2);
@@ -621,7 +632,6 @@
       ctx.ellipse(VW * 0.5, VH * 0.75, VW * 0.9, VH * 0.55, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Estrellas
       const starsCount = zone.stars;
       ctx.fillStyle = "rgba(255,255,255,0.6)";
       for (let i = 0; i < starsCount; i++) {
@@ -633,9 +643,7 @@
         ctx.fill();
       }
 
-      // Detalles extra por zona
       if (zone.key === "solar") {
-        // Saturno
         ctx.save();
         ctx.translate(VW * 0.7, VH * 0.25);
         ctx.scale(1, 0.6);
@@ -654,7 +662,6 @@
         ctx.stroke();
         ctx.restore();
       } else if (zone.key === "milkyway") {
-        // Banda Vía Láctea
         ctx.save();
         ctx.translate(VW * 0.1, VH * 0.1);
         ctx.rotate(-0.4);
@@ -667,7 +674,6 @@
         ctx.fillRect(0, VH * 0.2, VW * 1.4, VH * 0.3);
         ctx.restore();
       } else if (zone.key === "virgo") {
-        // Galaxias pequeñas
         for (let i = 0; i < 10; i++) {
           const gx = (i * 29.1 + h * 0.2) % VW;
           const gy = ((i * 41.7 + h * 0.3) % VH) * 0.9;
@@ -681,7 +687,6 @@
           ctx.fill();
         }
       } else if (zone.key === "horizon") {
-        // Glow neón
         const g2 = ctx.createRadialGradient(
           VW * 0.5,
           VH * 0.3,
@@ -745,7 +750,6 @@
         ctx.stroke();
       });
 
-      // Trampolín rojo
       const tx = VW * 0.45;
       const ty = VH - groundH + 4;
       const rx = 18;
@@ -784,7 +788,6 @@
     }
 
     function drawHazards() {
-      // Meteoritos
       for (const m of meteorites) {
         ctx.save();
         ctx.translate(m.x, m.y);
@@ -800,7 +803,6 @@
         ctx.restore();
       }
 
-      // Agujeros negros
       for (const b of blackHoles) {
         const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r * 2.2);
         g.addColorStop(0, "rgba(0,0,0,1)");
@@ -846,13 +848,13 @@
       ctx.save();
       ctx.translate(x, y);
 
-      // sombra
       ctx.fillStyle = "rgba(0,0,0,0.35)";
       ctx.beginPath();
       ctx.ellipse(0, r + 5, r * 1.6, r * 0.8, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      const bodyColor = world.jumpBoostTimer > 0 ? "#fff389" : "#ffdf6b";
+      const boosted = world.jumpBoostMultiplier > 1.01;
+      const bodyColor = boosted ? "#fff389" : "#ffdf6b";
       const outline = "#2b1a0f";
 
       if (jumping) {
