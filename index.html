@@ -1,311 +1,528 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Gusano 3D Jump - @guilbardoX (Corregido)</title>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background: linear-gradient(to bottom, #87CEEB, #E0F7FA);
-            font-family: 'Arial', sans-serif;
-        }
-        canvas {
-            display: block;
-        }
-        #ui {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: white;
-            font-size: 24px;
-            font-weight: bold;
-            text-shadow: 0 0 5px rgba(0,0,0,0.5);
-            z-index: 100;
-        }
-        #gameOver {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.8);
-            color: #fff;
-            padding: 30px 50px;
-            border-radius: 20px;
-            text-align: center;
-            font-size: 28px;
-            display: none;
-            z-index: 200;
-        }
-        button {
-            margin-top: 20px;
-            padding: 10px 20px;
-            font-size: 18px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-        }
-        button:hover { background: #45a049; }
-        #debug {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            color: white;
-            font-size: 12px;
-            z-index: 100;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <title>Ascensión de Wormk</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #05030a;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #fff;
+    }
+    .frame {
+      width: min(420px, 100vw);
+      aspect-ratio: 9/16;
+      border-radius: 16px;
+      border: 2px solid #ff55dd;
+      box-shadow: 0 0 32px rgba(255, 85, 221, 0.4);
+      overflow: hidden;
+      background: #000;
+      position: relative;
+      touch-action: none;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .hud-top {
+      position: absolute;
+      top: 4px;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      font-size: 13px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      text-shadow: 0 0 4px #000;
+      pointer-events: none;
+    }
+    .hud-bottom {
+      position: absolute;
+      bottom: 4px;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      font-size: 12px;
+      text-shadow: 0 0 4px #000;
+      pointer-events: none;
+    }
+    .hint {
+      position: absolute;
+      bottom: 30px;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      font-size: 10px;
+      opacity: 0.75;
+      pointer-events: none;
+    }
+  </style>
 </head>
 <body>
-    <div id="ui">Puntuación: <span id="score">0</span></div>
-    <div id="gameOver">
-        <h2>¡Game Over!</h2>
-        <p>Puntuación: <span id="finalScore">0</span></p>
-        <button onclick="restartGame()">Jugar de Nuevo</button>
-    </div>
-    <div id="debug">Cargando...</div>
+  <div class="frame">
+    <div class="hud-top" id="hudTop">ASCENSIÓN DE WORMK</div>
+    <canvas id="game"></canvas>
+    <div class="hud-bottom" id="hudBottom">Altura: 0 m · Mejor: 0 m</div>
+    <div class="hint">PC: Flechas ← → · Móvil: toca izquierda / derecha</div>
+  </div>
 
-    <!-- Solo el core de Three.js, sin módulos obsoletos -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.167.1/build/three.min.js"></script>
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const hudBottom = document.getElementById("hudBottom");
 
-    <script>
-        try {
-            console.log('Iniciando juego 3D...');
-            document.getElementById('debug').textContent = 'Three.js cargado';
+    // Mundo "pixel" lógico
+    const VW = 180;   // ancho virtual
+    const VH = 320;   // alto virtual
 
-            // Escena, cámara, renderer
-            const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            const renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-            document.body.appendChild(renderer.domElement);
-            document.getElementById('debug').textContent = 'Renderer listo';
+    let lastTime = 0;
+    let leftHeld = false;
+    let rightHeld = false;
+    let bestHeight = 0;
 
-            // Iluminación
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambientLight);
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(10, 20, 10);
-            directionalLight.castShadow = true;
-            directionalLight.shadow.camera.left = -50;
-            directionalLight.shadow.camera.right = 50;
-            directionalLight.shadow.camera.top = 50;
-            directionalLight.shadow.camera.bottom = -50;
-            scene.add(directionalLight);
+    const world = {
+      gravity: 0.35,
+      jumpVel: -7.8,
+      maxVX: 2.2,
+      friction: 0.88,
+      scrollY: 0,   // cuánto hemos subido en total (para la altura)
+    };
 
-            // Fondo (cielo)
-            scene.background = new THREE.Color(0x87CEEB);
+    const player = {
+      x: VW / 2,
+      y: VH - 40,
+      vx: 0,
+      vy: 0,
+      r: 7,
+      alive: true
+    };
 
-            // Gusano
-            let worm = new THREE.Group();
-            const wormCoiled = new THREE.Mesh(
-                new THREE.SphereGeometry(1.2, 16, 16),
-                new THREE.MeshPhongMaterial({ color: 0x00ff00, shininess: 100 })
-            );
-            const wormUncoiled = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.5, 0.5, 5, 16),
-                new THREE.MeshPhongMaterial({ color: 0x00cc00, shininess: 80 })
-            );
-            wormUncoiled.rotation.x = Math.PI / 2;
-            wormUncoiled.position.y = 1.5;
-            wormUncoiled.visible = false;
+    const platforms = [];
+    const PLATFORM_WIDTH = 40;
+    const PLATFORM_HEIGHT = 6;
+    const PLATFORM_GAP_MIN = 18;
+    const PLATFORM_GAP_MAX = 28;
 
-            worm.add(wormCoiled);
-            worm.add(wormUncoiled);
-            worm.position.y = 5;
-            worm.castShadow = true;
-            scene.add(worm);
-            document.getElementById('debug').textContent = 'Gusano creado';
+    function resizeCanvas() {
+      const frame = canvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = frame.width * dpr;
+      canvas.height = frame.height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = false; // look más pixel
+    }
 
-            // Variables del juego
-            const gravity = 0.05;
-            const jumpPower = 1.8;
-            let velocityY = 0;
-            let velocityX = 0;
-            let isUncoiled = false;
-            let uncoilTime = 0;
+    function initPlatforms() {
+      platforms.length = 0;
+      let y = VH - 20;
+      platforms.push({ x: VW / 2 - PLATFORM_WIDTH / 2, y, w: PLATFORM_WIDTH, h: PLATFORM_HEIGHT });
+      y -= 25;
+      while (y > -VH) {
+        const x = 10 + Math.random() * (VW - PLATFORM_WIDTH - 20);
+        platforms.push({ x, y, w: PLATFORM_WIDTH, h: PLATFORM_HEIGHT });
+        y -= PLATFORM_GAP_MIN + Math.random() * (PLATFORM_GAP_MAX - PLATFORM_GAP_MIN);
+      }
+    }
 
-            let platforms = [];
-            let score = 0;
-            let gameOver = false;
-            let cameraOffsetY = 8;
+    function resetGame() {
+      world.scrollY = 0;
+      player.x = VW / 2;
+      player.y = VH - 40;
+      player.vx = 0;
+      player.vy = -5; // pequeño salto inicial
+      player.alive = true;
+      initPlatforms();
+    }
 
-            // Generar plataformas
-            function createPlatform(x, y, z) {
-                const geometry = new THREE.BoxGeometry(6 + Math.random() * 4, 0.5, 6);
-                const material = new THREE.MeshPhongMaterial({
-                    color: 0x8B4513 + Math.floor(Math.random() * 0x333333),
-                    emissive: 0x222222
-                });
-                const platform = new THREE.Mesh(geometry, material);
-                platform.position.set(x, y, z);
-                platform.receiveShadow = true;
-                platform.castShadow = true;
-                scene.add(platform);
-                platforms.push({ mesh: platform, broken: false });
-                return platform;
-            }
+    function handleKeyboard(e, isDown) {
+      if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
+        leftHeld = isDown;
+        e.preventDefault();
+      } else if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
+        rightHeld = isDown;
+        e.preventDefault();
+      } else if (e.key === " " && !isDown && !player.alive) {
+        resetGame();
+      }
+    }
 
-            function initPlatforms() {
-                platforms.forEach(p => scene.remove(p.mesh));
-                platforms = [];
-                for (let i = 0; i < 15; i++) {
-                    const x = (Math.random() - 0.5) * 30;
-                    const z = (Math.random() - 0.5) * 30;
-                    const y = i * 5;
-                    createPlatform(x, y, z);
-                }
-                worm.position.set(0, 8, 0);
-                velocityY = 0;
-                velocityX = 0;
-                score = 0;
-                updateScore();
-                document.getElementById('debug').textContent = 'Plataformas generadas';
-            }
+    document.addEventListener("keydown", e => handleKeyboard(e, true));
+    document.addEventListener("keyup", e => handleKeyboard(e, false));
 
-            // Controles
-            const keys = {};
-            window.addEventListener('keydown', e => keys[e.key] = true);
-            window.addEventListener('keyup', e => keys[e.key] = false);
+    // Controles táctiles: izquierda/derecha según la mitad de pantalla
+    function updateTouch(e) {
+      e.preventDefault();
+      if (e.touches.length === 0) {
+        leftHeld = rightHeld = false;
+        return;
+      }
+      let anyLeft = false;
+      let anyRight = false;
+      const rect = canvas.getBoundingClientRect();
+      for (const touch of e.touches) {
+        const x = touch.clientX - rect.left;
+        if (x < rect.width * 0.5) anyLeft = true;
+        else anyRight = true;
+      }
+      leftHeld = anyLeft;
+      rightHeld = anyRight;
+    }
 
-            // Controles táctiles
-            let touchStartX = 0;
-            renderer.domElement.addEventListener('touchstart', e => {
-                touchStartX = e.touches[0].clientX;
-            });
-            renderer.domElement.addEventListener('touchmove', e => {
-                const deltaX = e.touches[0].clientX - touchStartX;
-                velocityX = deltaX * 0.0005;
-            });
+    canvas.addEventListener("touchstart", updateTouch, { passive: false });
+    canvas.addEventListener("touchmove", updateTouch, { passive: false });
+    canvas.addEventListener("touchend", updateTouch, { passive: false });
+    canvas.addEventListener("touchcancel", updateTouch, { passive: false });
 
-            // Actualización del juego
-            function updateWorm() {
-                if (gameOver) return;
+    // Clic en PC: izquierda/derecha también
+    canvas.addEventListener("mousedown", e => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      if (x < rect.width * 0.5) leftHeld = true;
+      else rightHeld = true;
+    });
+    window.addEventListener("mouseup", () => {
+      leftHeld = rightHeld = false;
+    });
 
-                // Movimiento horizontal
-                if (keys['ArrowLeft'] || keys['a'] || keys['A']) velocityX = -0.3;
-                else if (keys['ArrowRight'] || keys['d'] || keys['D']) velocityX = 0.3;
-                else velocityX *= 0.9;
+    function update(dt) {
+      if (!player.alive) return;
 
-                worm.position.x += velocityX;
-                worm.position.x = Math.max(-15, Math.min(15, worm.position.x)); // Límites laterales
+      // Controles horizontales
+      if (leftHeld && !rightHeld) {
+        player.vx -= 0.22;
+      } else if (rightHeld && !leftHeld) {
+        player.vx += 0.22;
+      } else {
+        player.vx *= world.friction;
+      }
 
-                // Gravedad
-                velocityY -= gravity;
-                worm.position.y += velocityY;
+      if (player.vx > world.maxVX) player.vx = world.maxVX;
+      if (player.vx < -world.maxVX) player.vx = -world.maxVX;
 
-                // Desenrollar al saltar
-                if (isUncoiled) {
-                    uncoilTime--;
-                    if (uncoilTime <= 0) {
-                        isUncoiled = false;
-                        wormCoiled.visible = true;
-                        wormUncoiled.visible = false;
-                    }
-                }
+      player.x += player.vx;
 
-                // Colisión con plataformas (simplificada)
-                platforms.forEach(p => {
-                    if (p.broken) return;
-                    const distY = worm.position.y - p.mesh.position.y;
-                    const distX = Math.abs(worm.position.x - p.mesh.position.x);
-                    const distZ = Math.abs(worm.position.z - p.mesh.position.z);
-                    if (distY < 2 && distY > 0 && distX < 4 && distZ < 4 && velocityY < 0) {
-                        velocityY = jumpPower;
-                        isUncoiled = true;
-                        uncoilTime = 20;
-                        wormCoiled.visible = false;
-                        wormUncoiled.visible = true;
+      // wrap horizontal tipo Doodle Jump
+      if (player.x < -player.r) player.x = VW + player.r;
+      if (player.x > VW + player.r) player.x = -player.r;
 
-                        // Romper plataforma
-                        setTimeout(() => {
-                            p.mesh.material.color.set(0x555555);
-                            p.broken = true;
-                        }, 100);
-                    }
-                });
+      // Física vertical
+      player.vy += world.gravity;
+      player.y += player.vy;
 
-                // Caída = game over
-                if (worm.position.y < -20) {
-                    endGame();
-                }
-
-                // Puntuación
-                if (worm.position.y > score) {
-                    score = Math.floor(worm.position.y);
-                    updateScore();
-                }
-
-                // Mover plataformas hacia abajo (cuando subiendo)
-                if (velocityY < 0) {
-                    platforms.forEach(p => {
-                        p.mesh.position.y -= velocityY * 0.3;
-                    });
-                }
-
-                // Generar nuevas plataformas
-                platforms = platforms.filter(p => p.mesh.position.y > worm.position.y - 30);
-                while (platforms.length < 15) {
-                    const lastY = platforms.length ? platforms[platforms.length - 1].mesh.position.y : worm.position.y;
-                    const x = (Math.random() - 0.5) * 35;
-                    const z = (Math.random() - 0.5) * 35;
-                    createPlatform(x, lastY + 6 + Math.random() * 4, z);
-                }
-            }
-
-            function updateCamera() {
-                camera.position.x = worm.position.x * 0.3;
-                camera.position.y = worm.position.y + cameraOffsetY;
-                camera.position.z = 15;
-                camera.lookAt(worm.position.x, worm.position.y + 2, 0);
-            }
-
-            function updateScore() {
-                document.getElementById('score').textContent = score;
-            }
-
-            function endGame() {
-                gameOver = true;
-                document.getElementById('finalScore').textContent = score;
-                document.getElementById('gameOver').style.display = 'block';
-            }
-
-            function restartGame() {
-                document.getElementById('gameOver').style.display = 'none';
-                gameOver = false;
-                initPlatforms();
-            }
-
-            // Responsive
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            });
-
-            // Bucle principal
-            function animate() {
-                requestAnimationFrame(animate);
-                updateWorm();
-                updateCamera();
-                renderer.render(scene, camera);
-            }
-
-            // Iniciar
-            initPlatforms();
-            animate();
-            document.getElementById('debug').textContent = '¡Juego iniciado! Usa ← → o desliza en móvil.';
-            console.log('Juego listo sin errores.');
-
-        } catch (error) {
-            console.error('Error en el juego:', error);
-            document.getElementById('debug').textContent = 'Error: ' + error.message + '. Revisa la consola (F12).';
+      // Colisiones con plataformas (solo cuando cae)
+      if (player.vy > 0) {
+        const bottom = player.y + player.r;
+        for (const p of platforms) {
+          if (
+            bottom > p.y &&
+            bottom < p.y + p.h + player.vy + 1 &&
+            player.x > p.x - player.r &&
+            player.x < p.x + p.w + player.r
+          ) {
+            player.y = p.y - player.r;
+            player.vy = world.jumpVel;
+          }
         }
-    </script>
+      }
+
+      // Scroll: si sube por encima de la "cámara"
+      const camY = VH * 0.4;
+      if (player.y < camY) {
+        const diff = camY - player.y;
+        player.y += diff;
+        world.scrollY += diff;
+        for (const p of platforms) p.y += diff;
+        // quitar plataformas que salieron muy abajo
+        for (let i = platforms.length - 1; i >= 0; i--) {
+          if (platforms[i].y > VH + 20) platforms.splice(i, 1);
+        }
+        // generar nuevas arriba
+        let highestY = Infinity;
+        for (const p of platforms) {
+          if (p.y < highestY) highestY = p.y;
+        }
+        while (highestY > -VH) {
+          const gap = PLATFORM_GAP_MIN + Math.random() * (PLATFORM_GAP_MAX - PLATFORM_GAP_MIN);
+          highestY -= gap;
+          const x = 10 + Math.random() * (VW - PLATFORM_WIDTH - 20);
+          platforms.push({ x, y: highestY, w: PLATFORM_WIDTH, h: PLATFORM_HEIGHT });
+        }
+      }
+
+      // Game over si cae
+      if (player.y - player.r > VH + 10) {
+        player.alive = false;
+        if (world.scrollY > bestHeight) bestHeight = world.scrollY;
+      }
+
+      const heightMeters = Math.floor(world.scrollY / 10);
+      const bestMeters = Math.floor(bestHeight / 10);
+      hudBottom.textContent =
+        `Altura: ${heightMeters} m · Mejor: ${bestMeters} m` +
+        (!player.alive ? " · Toca o presiona ESPACIO para reiniciar" : "");
+    }
+
+    function drawBackground() {
+      // Cielo con degradado
+      const grad = ctx.createLinearGradient(0, 0, 0, VH);
+      grad.addColorStop(0, "#19143f");
+      grad.addColorStop(0.5, "#182b57");
+      grad.addColorStop(1, "#104454");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, VW, VH);
+
+      // Lunas / montañas suaves para profundidad
+      ctx.fillStyle = "rgba(10, 8, 30, 0.5)";
+      ctx.beginPath();
+      ctx.ellipse(VW * 0.5, VH * 0.15, VW * 0.55, VH * 0.25, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "rgba(7, 10, 35, 0.7)";
+      ctx.beginPath();
+      ctx.ellipse(VW * 0.5, VH * 0.7, VW * 0.8, VH * 0.4, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Estrellas
+      ctx.fillStyle = "rgba(255,255,255,0.5)";
+      for (let i = 0; i < 60; i++) {
+        const x = (i * 17.13) % VW;
+        const y = ((i * 53.77) % VH) * 0.6;
+        const r = (i % 4) * 0.2 + 0.3;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawGroundAndHouse() {
+      // Suelo
+      const groundH = 40;
+      ctx.fillStyle = "#5a3b1f";
+      ctx.fillRect(0, VH - groundH, VW, groundH);
+
+      // Casa pixel-cute
+      const w = 45;
+      const h = 32;
+      const x = 10;
+      const y = VH - groundH - h + 2;
+
+      // cuerpo
+      ctx.fillStyle = "#fef3dd";
+      ctx.fillRect(x, y, w, h);
+
+      // techo
+      ctx.fillStyle = "#3b1020";
+      ctx.beginPath();
+      ctx.moveTo(x - 3, y);
+      ctx.lineTo(x + w / 2, y - 16);
+      ctx.lineTo(x + w + 3, y);
+      ctx.closePath();
+      ctx.fill();
+
+      // puerta
+      ctx.fillStyle = "#603028";
+      ctx.fillRect(x + w * 0.42, y + h - 14, 8, 14);
+
+      // ventanas
+      ctx.strokeStyle = "#3b1020";
+      ctx.lineWidth = 1;
+      const winSize = 8;
+      const winY = y + 7;
+      const win1X = x + 6;
+      const win2X = x + w - winSize - 6;
+      [win1X, win2X].forEach(wx => {
+        ctx.strokeRect(wx, winY, winSize, winSize);
+        ctx.beginPath();
+        ctx.moveTo(wx, winY);
+        ctx.lineTo(wx + winSize, winY + winSize);
+        ctx.moveTo(wx + winSize, winY);
+        ctx.lineTo(wx, winY + winSize);
+        ctx.stroke();
+      });
+
+      // Trampolín rojo
+      const tx = VW * 0.45;
+      const ty = VH - groundH + 4;
+      const rx = 18;
+      const ry = 6;
+
+      // patas
+      ctx.strokeStyle = "#d62b3e";
+      ctx.lineWidth = 2;
+      const legs = [-rx * 0.6, -rx * 0.2, rx * 0.2, rx * 0.6];
+      legs.forEach(dx => {
+        ctx.beginPath();
+        ctx.moveTo(tx + dx, ty);
+        ctx.lineTo(tx + dx, ty + 10);
+        ctx.stroke();
+      });
+
+      ctx.beginPath();
+      ctx.ellipse(tx, ty - 2, rx, ry, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = "#ff3c4b";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    function drawPlatforms() {
+      for (const p of platforms) {
+        // marco oscuro
+        ctx.fillStyle = "#2a1238";
+        ctx.fillRect(p.x, p.y + 2, p.w, p.h);
+
+        // parte brillante
+        const grad = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.h);
+        grad.addColorStop(0, "#ff8cff");
+        grad.addColorStop(1, "#d350ff");
+        ctx.fillStyle = grad;
+        ctx.fillRect(p.x, p.y, p.w, p.h);
+      }
+    }
+
+    function drawPlayer() {
+      const { x, y, r } = player;
+      const jumping = player.vy < -1.5;
+
+      ctx.save();
+      ctx.translate(x, y);
+
+      // sombra
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.beginPath();
+      ctx.ellipse(0, r + 5, r * 1.6, r * 0.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // cuerpo
+      const bodyColor = "#ffdf6b";
+      const outline = "#2b1a0f";
+
+      if (jumping) {
+        // estirado
+        ctx.fillStyle = bodyColor;
+        ctx.strokeStyle = outline;
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+        ctx.roundRect(-r * 0.7, -r * 2.6, r * 1.4, r * 3.0, r * 0.7);
+        ctx.fill();
+        ctx.stroke();
+
+        // cabeza
+        ctx.beginPath();
+        ctx.arc(0, -r * 2.8, r * 0.9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // cara kawaii
+        ctx.fillStyle = "#3a1b1b";
+        ctx.beginPath();
+        ctx.arc(-r * 0.35, -r * 3.0, 1.3, 0, Math.PI * 2);
+        ctx.arc(r * 0.35, -r * 3.0, 1.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, -r * 2.7, 2, 0, Math.PI, false);
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+      } else {
+        // enrollado tipo resorte
+        ctx.fillStyle = bodyColor;
+        ctx.strokeStyle = outline;
+        ctx.lineWidth = 2;
+
+        // aros
+        ctx.beginPath();
+        ctx.roundRect(-r * 1.8, -r * 0.1, r * 3.6, r * 0.9, r * 0.5);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.roundRect(-r * 1.4, -r * 0.9, r * 2.8, r * 0.9, r * 0.5);
+        ctx.fill();
+        ctx.stroke();
+
+        // cuello
+        ctx.beginPath();
+        ctx.roundRect(-r * 0.7, -r * 2.0, r * 1.4, r * 1.7, r * 0.7);
+        ctx.fill();
+        ctx.stroke();
+
+        // cabeza
+        ctx.beginPath();
+        ctx.arc(0, -r * 2.2, r * 0.9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // cara kawaii
+        ctx.fillStyle = "#3a1b1b";
+        ctx.beginPath();
+        ctx.arc(-r * 0.35, -r * 2.4, 1.3, 0, Math.PI * 2);
+        ctx.arc(r * 0.35, -r * 2.4, 1.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, -r * 2.1, 2, 0, Math.PI, false);
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+
+    function gameLoop(timestamp) {
+      const dt = Math.min((timestamp - lastTime) / 16.67, 2); // ~60fps base
+      lastTime = timestamp;
+
+      update(dt);
+      // dibujar en coordenadas virtuales
+      ctx.save();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(canvas.width / (VW * (window.devicePixelRatio || 1)), 0, 0,
+                       canvas.height / (VH * (window.devicePixelRatio || 1)), 0, 0);
+
+      drawBackground();
+      drawGroundAndHouse();
+      drawPlatforms();
+      drawPlayer();
+
+      ctx.restore();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Polyfill para roundRect en navegadores viejos
+    if (!CanvasRenderingContext2D.prototype.roundRect) {
+      CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+        const rr = Math.min(r, w / 2, h / 2);
+        this.beginPath();
+        this.moveTo(x + rr, y);
+        this.arcTo(x + w, y, x + w, y + h, rr);
+        this.arcTo(x + w, y + h, x, y + h, rr);
+        this.arcTo(x, y + h, x, y, rr);
+        this.arcTo(x, y, x + w, y, rr);
+        this.closePath();
+        return this;
+      };
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+    resetGame();
+    requestAnimationFrame(gameLoop);
+  </script>
 </body>
 </html>
