@@ -99,15 +99,21 @@
 
     const world = {
       gravity: 0.35,
-      jumpVel: -7.8,
+      baseJumpVel: -7.8,
       maxVX: 2.2,
       friction: 0.88,
       scrollY: 0,         // píxeles virtuales subidos
       heightMeters: 0,
       zoneName: "Jardín",
       controlsInverted: false,
-      invertTimer: 0
+      invertTimer: 0,
+      jumpBoostTimer: 0   // tiempo restante del potenciador de salto
     };
+
+    function currentJumpVel() {
+      // Si hay potenciador, salto más fuerte
+      return world.jumpBoostTimer > 0 ? world.baseJumpVel * 1.7 : world.baseJumpVel;
+    }
 
     const player = {
       x: VW / 2,
@@ -130,6 +136,9 @@
     let meteorTimer = 0;
     let blackHoleTimer = 0;
 
+    // Power-ups (orbes de salto)
+    let powerUps = [];
+
     function resizeCanvas() {
       const frame = canvas.parentElement.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
@@ -139,122 +148,6 @@
       ctx.imageSmoothingEnabled = false; // look pixel
     }
 
-    function createPlatform(x, y) {
-      const plat = {
-        x,
-        y,
-        w: PLATFORM_WIDTH,
-        h: PLATFORM_HEIGHT,
-        vx: 0,
-        rangeMin: x,
-        rangeMax: x + PLATFORM_WIDTH
-      };
-
-      const zone = getZone(world.heightMeters);
-
-      // Plataformas móviles solo en zonas altas
-      if (
-        (zone.key === "milkyway" || zone.key === "virgo" || zone.key === "horizon") &&
-        Math.random() < 0.35
-      ) {
-        plat.vx = (Math.random() < 0.5 ? -0.4 : 0.4);
-        plat.rangeMin = 10;
-        plat.rangeMax = VW - PLATFORM_WIDTH - 10;
-      }
-
-      return plat;
-    }
-
-    function initPlatforms() {
-      platforms.length = 0;
-      let y = VH - 20;
-      platforms.push(createPlatform(VW / 2 - PLATFORM_WIDTH / 2, y));
-      y -= 25;
-      while (y > -VH) {
-        const x = 10 + Math.random() * (VW - PLATFORM_WIDTH - 20);
-        platforms.push(createPlatform(x, y));
-        y -= PLATFORM_GAP_MIN + Math.random() * (PLATFORM_GAP_MAX - PLATFORM_GAP_MIN);
-      }
-    }
-
-    function resetGame() {
-      world.scrollY = 0;
-      world.heightMeters = 0;
-      world.zoneName = "Jardín";
-      world.controlsInverted = false;
-      world.invertTimer = 0;
-      meteorites.length = 0;
-      blackHoles.length = 0;
-      meteorTimer = 0;
-      blackHoleTimer = 0;
-
-      player.x = VW / 2;
-      player.y = VH - 40;
-      player.vx = 0;
-      player.vy = -5;
-      player.alive = true;
-
-      initPlatforms();
-    }
-
-    function handleKeyboard(e, isDown) {
-      if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
-        leftHeld = isDown;
-        e.preventDefault();
-      } else if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
-        rightHeld = isDown;
-        e.preventDefault();
-      } else if (e.key === " " && !isDown && !player.alive) {
-        resetGame();
-      }
-    }
-
-    document.addEventListener("keydown", (e) => handleKeyboard(e, true));
-    document.addEventListener("keyup", (e) => handleKeyboard(e, false));
-
-    // Controles táctiles: izquierda/derecha según mitad de pantalla
-    function updateTouch(e) {
-      e.preventDefault();
-      if (e.touches.length === 0) {
-        leftHeld = rightHeld = false;
-        return;
-      }
-      let anyLeft = false;
-      let anyRight = false;
-      const rect = canvas.getBoundingClientRect();
-      for (const t of e.touches) {
-        const x = t.clientX - rect.left;
-        if (x < rect.width * 0.5) anyLeft = true;
-        else anyRight = true;
-      }
-      leftHeld = anyLeft;
-      rightHeld = anyRight;
-    }
-
-    canvas.addEventListener("touchstart", updateTouch, { passive: false });
-    canvas.addEventListener("touchmove", updateTouch, { passive: false });
-    canvas.addEventListener("touchend", updateTouch, { passive: false });
-    canvas.addEventListener("touchcancel", updateTouch, { passive: false });
-
-    // Click en PC: también mueve
-    canvas.addEventListener("mousedown", (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      if (x < rect.width * 0.5) leftHeld = true;
-      else rightHeld = true;
-    });
-    window.addEventListener("mouseup", () => {
-      leftHeld = rightHeld = false;
-    });
-
-    // --------- ZONAS DEL UNIVERSO ---------
-    // Rango sugerido:
-    // 0–150        Jardín
-    // 150–900      Cielo / Estratosfera
-    // 900–3500     Sistema Solar
-    // 3500–12000   Vía Láctea
-    // 12000–40000  Supercúmulo de Virgo
-    // 40000+       Horizonte Cósmico
     function getZone(heightM) {
       if (heightM < 150) {
         return {
@@ -313,14 +206,132 @@
       }
     }
 
+    function createPlatform(x, y) {
+      const plat = {
+        x,
+        y,
+        w: PLATFORM_WIDTH,
+        h: PLATFORM_HEIGHT,
+        vx: 0,
+        rangeMin: x,
+        rangeMax: x + PLATFORM_WIDTH
+      };
+
+      const zone = getZone(world.heightMeters);
+
+      // Plataformas móviles en zonas altas
+      if (
+        (zone.key === "milkyway" || zone.key === "virgo" || zone.key === "horizon") &&
+        Math.random() < 0.35
+      ) {
+        plat.vx = (Math.random() < 0.5 ? -0.4 : 0.4);
+        plat.rangeMin = 10;
+        plat.rangeMax = VW - PLATFORM_WIDTH - 10;
+      }
+
+      // Posible power-up en plataformas fuera del Jardín
+      if (zone.key !== "garden" && Math.random() < 0.18) {
+        powerUps.push({
+          x: x + PLATFORM_WIDTH / 2,
+          y: y - 8,
+          r: 4,
+          taken: false
+        });
+      }
+
+      return plat;
+    }
+
+    function initPlatforms() {
+      platforms.length = 0;
+      powerUps = [];
+      let y = VH - 20;
+      platforms.push(createPlatform(VW / 2 - PLATFORM_WIDTH / 2, y));
+      y -= 25;
+      while (y > -VH) {
+        const x = 10 + Math.random() * (VW - PLATFORM_WIDTH - 20);
+        platforms.push(createPlatform(x, y));
+        y -= PLATFORM_GAP_MIN + Math.random() * (PLATFORM_GAP_MAX - PLATFORM_GAP_MIN);
+      }
+    }
+
+    function resetGame() {
+      world.scrollY = 0;
+      world.heightMeters = 0;
+      world.zoneName = "Jardín";
+      world.controlsInverted = false;
+      world.invertTimer = 0;
+      world.jumpBoostTimer = 0;
+      meteorites.length = 0;
+      blackHoles.length = 0;
+      meteorTimer = 0;
+      blackHoleTimer = 0;
+      powerUps = [];
+
+      player.x = VW / 2;
+      player.y = VH - 40;
+      player.vx = 0;
+      player.vy = -5;
+      player.alive = true;
+
+      initPlatforms();
+    }
+
+    function handleKeyboard(e, isDown) {
+      if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
+        leftHeld = isDown;
+        e.preventDefault();
+      } else if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
+        rightHeld = isDown;
+        e.preventDefault();
+      } else if (e.key === " " && !isDown && !player.alive) {
+        resetGame();
+      }
+    }
+
+    document.addEventListener("keydown", (e) => handleKeyboard(e, true));
+    document.addEventListener("keyup", (e) => handleKeyboard(e, false));
+
+    // Táctil: mitad izquierda/derecha
+    function updateTouch(e) {
+      e.preventDefault();
+      if (e.touches.length === 0) {
+        leftHeld = rightHeld = false;
+        return;
+      }
+      let anyLeft = false;
+      let anyRight = false;
+      const rect = canvas.getBoundingClientRect();
+      for (const t of e.touches) {
+        const x = t.clientX - rect.left;
+        if (x < rect.width * 0.5) anyLeft = true;
+        else anyRight = true;
+      }
+      leftHeld = anyLeft;
+      rightHeld = anyRight;
+    }
+
+    canvas.addEventListener("touchstart", updateTouch, { passive: false });
+    canvas.addEventListener("touchmove", updateTouch, { passive: false });
+    canvas.addEventListener("touchend", updateTouch, { passive: false });
+    canvas.addEventListener("touchcancel", updateTouch, { passive: false });
+
+    canvas.addEventListener("mousedown", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      if (x < rect.width * 0.5) leftHeld = true;
+      else rightHeld = true;
+    });
+    window.addEventListener("mouseup", () => {
+      leftHeld = rightHeld = false;
+    });
+
     // --------- HAZARDS ---------
-    function spawnMeteorite(zone) {
-      // Solo en Sistema Solar
-      if (zone.key !== "solar") return;
+    function spawnMeteorite() {
       const side = Math.random() < 0.5 ? "left" : "right";
       const y = 20 + Math.random() * (VH * 0.6);
-      const speed = 1.2 + Math.random() * 0.9;
-      const vy = 0.15 + Math.random() * 0.25;
+      const speed = 0.8 + Math.random() * 0.7; // más lentos
+      const vy = 0.08 + Math.random() * 0.18;
       const x = side === "left" ? -20 : VW + 20;
       const vx = side === "left" ? speed : -speed;
       meteorites.push({
@@ -332,11 +343,9 @@
       });
     }
 
-    function spawnBlackHole(zone) {
-      // Solo en Vía Láctea
-      if (zone.key !== "milkyway") return;
+    function spawnBlackHole() {
       const x = 20 + Math.random() * (VW - 40);
-      const y = -20 - Math.random() * 60; // aparece por arriba
+      const y = -20 - Math.random() * 60;
       blackHoles.push({
         x,
         y,
@@ -349,24 +358,31 @@
       meteorTimer += dt;
       blackHoleTimer += dt;
 
-      // Spawn meteoritos cada ~1.3–2s en Sistema Solar
+      // Meteoritos SOLO en Sistema Solar, entre 2 y 4 en pantalla
       if (zone.key === "solar") {
-        const baseDelay = 1.6;
-        const randomExtra = Math.random() * 0.6;
-        if (meteorTimer > baseDelay + randomExtra) {
+        const minM = 2;
+        const maxM = 4;
+
+        if (meteorites.length < minM && meteorTimer > 0.4) {
+          spawnMeteorite();
           meteorTimer = 0;
-          spawnMeteorite(zone);
+        } else if (
+          meteorites.length < maxM &&
+          meteorTimer > 1.8 + Math.random() * 0.8
+        ) {
+          spawnMeteorite();
+          meteorTimer = 0;
         }
       } else {
-        meteorTimer = 0; // resetea cuando sales de la zona
+        // fuera de la zona, dejamos que se vayan
+        meteorTimer = 0;
       }
 
-      // Spawn agujeros negros cada ~4–7s en Vía Láctea
+      // Agujeros negros SOLO en Vía Láctea
       if (zone.key === "milkyway") {
-        const delay = 4 + Math.random() * 3;
-        if (blackHoleTimer > delay) {
+        if (blackHoleTimer > 4 + Math.random() * 3) {
+          spawnBlackHole();
           blackHoleTimer = 0;
-          spawnBlackHole(zone);
         }
       } else {
         blackHoleTimer = 0;
@@ -382,7 +398,7 @@
         }
       }
 
-      // Mover agujeros negros (bajan un poco)
+      // Mover agujeros negros
       for (let i = blackHoles.length - 1; i >= 0; i--) {
         const b = blackHoles[i];
         b.y += 0.05;
@@ -391,7 +407,7 @@
         }
       }
 
-      // Efecto de atracción de agujeros negros
+      // Atracción de agujeros negros
       if (zone.key === "milkyway" || zone.key === "virgo" || zone.key === "horizon") {
         for (const b of blackHoles) {
           const dx = b.x - player.x;
@@ -412,7 +428,7 @@
       for (const m of meteorites) {
         const dx = m.x - player.x;
         const dy = m.y - player.y;
-        const rr = (m.r + player.r * 0.7);
+        const rr = m.r + player.r * 0.7;
         if (dx * dx + dy * dy < rr * rr) {
           player.alive = false;
           return;
@@ -422,7 +438,7 @@
       for (const b of blackHoles) {
         const dx = b.x - player.x;
         const dy = b.y - player.y;
-        const rr = (b.r + player.r * 0.6);
+        const rr = b.r + player.r * 0.6;
         if (dx * dx + dy * dy < rr * rr) {
           player.alive = false;
           return;
@@ -436,11 +452,17 @@
       // Zona actual
       const zone = getZone(world.heightMeters);
 
-      // Controles invertidos en Horizonte Cósmico
+      // Temporizador del power-up de salto
+      if (world.jumpBoostTimer > 0) {
+        world.jumpBoostTimer -= dt;
+        if (world.jumpBoostTimer < 0) world.jumpBoostTimer = 0;
+      }
+
+      // Controles invertidos en Horizonte Cósmico (ocasional)
       if (zone.key === "horizon") {
         if (!world.controlsInverted && Math.random() < 0.003) {
           world.controlsInverted = true;
-          world.invertTimer = 2.5; // segundos
+          world.invertTimer = 2.5;
         }
       }
       if (world.controlsInverted) {
@@ -454,7 +476,6 @@
       let moveLeft = leftHeld;
       let moveRight = rightHeld;
       if (world.controlsInverted) {
-        // intercambiar
         const tmp = moveLeft;
         moveLeft = moveRight;
         moveRight = tmp;
@@ -481,7 +502,7 @@
       player.vy += world.gravity;
       player.y += player.vy;
 
-      // Mover plataformas móviles
+      // Plataformas móviles
       for (const p of platforms) {
         if (p.vx !== 0) {
           p.x += p.vx;
@@ -493,7 +514,7 @@
         }
       }
 
-      // Colisión con plataformas (solo cuando cae)
+      // Colisión con plataformas (solo cayendo)
       if (player.vy > 0) {
         const bottom = player.y + player.r;
         for (const p of platforms) {
@@ -504,7 +525,7 @@
             player.x < p.x + p.w + player.r
           ) {
             player.y = p.y - player.r;
-            player.vy = world.jumpVel;
+            player.vy = currentJumpVel();
           }
         }
       }
@@ -518,11 +539,14 @@
         for (const p of platforms) p.y += diff;
         for (const m of meteorites) m.y += diff;
         for (const b of blackHoles) b.y += diff;
+        for (const pu of powerUps) pu.y += diff;
 
-        // limpiar plataformas que salen abajo
+        // limpiar plataformas abajo
         for (let i = platforms.length - 1; i >= 0; i--) {
           if (platforms[i].y > VH + 20) platforms.splice(i, 1);
         }
+        // limpiar power-ups abajo
+        powerUps = powerUps.filter((pu) => pu.y < VH + 40 && !pu.taken);
 
         // generar nuevas arriba
         let highestY = Infinity;
@@ -537,6 +561,19 @@
         }
       }
 
+      // Colisión con power-ups (pickup)
+      for (const pu of powerUps) {
+        if (pu.taken) continue;
+        const dx = pu.x - player.x;
+        const dy = pu.y - player.y;
+        const rr = pu.r + player.r * 0.6;
+        if (dx * dx + dy * dy < rr * rr) {
+          pu.taken = true;
+          world.jumpBoostTimer = 6; // 6 segundos de salto potenciado
+        }
+      }
+      powerUps = powerUps.filter((pu) => !pu.taken && pu.y < VH + 40);
+
       // Game over si cae
       if (player.y - player.r > VH + 10) {
         player.alive = false;
@@ -546,10 +583,11 @@
       // Altura y zona
       const heightMeters = Math.floor(world.scrollY / 10);
       world.heightMeters = heightMeters;
-      world.zoneName = zone.name;
+      const zoneNow = getZone(heightMeters);
+      world.zoneName = zoneNow.name;
 
-      // Hazards (se actualizan después de mover al jugador)
-      updateHazards(dt, zone);
+      // Hazards
+      updateHazards(dt, zoneNow);
       applyHazardCollisions();
 
       const bestMeters = Math.floor(bestHeight / 10);
@@ -557,8 +595,9 @@
         `Altura: ${heightMeters} m · Mejor: ${bestMeters} m` +
         (!player.alive ? " · Toca o presiona ESPACIO para reiniciar" : "");
       hudTop.textContent =
-        `ASCENSIÓN DE WORMK — Zona: ${zone.name}` +
-        (world.controlsInverted ? " · Controles invertidos" : "");
+        `ASCENSIÓN DE WORMK — Zona: ${zoneNow.name}` +
+        (world.controlsInverted ? " · Controles invertidos" : "") +
+        (world.jumpBoostTimer > 0 ? " · Salto x1.7" : "");
     }
 
     function drawBackground() {
@@ -596,7 +635,7 @@
 
       // Detalles extra por zona
       if (zone.key === "solar") {
-        // Planeta tipo Saturno
+        // Saturno
         ctx.save();
         ctx.translate(VW * 0.7, VH * 0.25);
         ctx.scale(1, 0.6);
@@ -615,7 +654,7 @@
         ctx.stroke();
         ctx.restore();
       } else if (zone.key === "milkyway") {
-        // Banda de la Vía Láctea
+        // Banda Vía Láctea
         ctx.save();
         ctx.translate(VW * 0.1, VH * 0.1);
         ctx.rotate(-0.4);
@@ -628,7 +667,7 @@
         ctx.fillRect(0, VH * 0.2, VW * 1.4, VH * 0.3);
         ctx.restore();
       } else if (zone.key === "virgo") {
-        // Pequeñas galaxias
+        // Galaxias pequeñas
         for (let i = 0; i < 10; i++) {
           const gx = (i * 29.1 + h * 0.2) % VW;
           const gy = ((i * 41.7 + h * 0.3) % VH) * 0.9;
@@ -659,7 +698,6 @@
     }
 
     function drawGroundAndHouse() {
-      // La casa solo se ve cerca del suelo y se desvanece
       const h = world.heightMeters;
       let alpha = 1 - h / 160;
       if (alpha <= 0) return;
@@ -734,7 +772,6 @@
 
     function drawPlatforms() {
       for (const p of platforms) {
-        // sombra
         ctx.fillStyle = "#2a1238";
         ctx.fillRect(p.x, p.y + 2, p.w, p.h);
 
@@ -776,6 +813,32 @@
       }
     }
 
+    function drawPowerUps() {
+      for (const pu of powerUps) {
+        ctx.save();
+        ctx.translate(pu.x, pu.y);
+        const r = pu.r;
+        const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 2.3);
+        glow.addColorStop(0, "rgba(0,255,200,0.9)");
+        glow.addColorStop(1, "rgba(0,255,200,0)");
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#00ffe0";
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
+        ctx.beginPath();
+        ctx.arc(-r * 0.3, -r * 0.3, r * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
     function drawPlayer() {
       const { x, y, r } = player;
       const jumping = player.vy < -1.5;
@@ -789,11 +852,10 @@
       ctx.ellipse(0, r + 5, r * 1.6, r * 0.8, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      const bodyColor = "#ffdf6b";
+      const bodyColor = world.jumpBoostTimer > 0 ? "#fff389" : "#ffdf6b";
       const outline = "#2b1a0f";
 
       if (jumping) {
-        // Wormk estirado
         ctx.fillStyle = bodyColor;
         ctx.strokeStyle = outline;
         ctx.lineWidth = 2;
@@ -819,7 +881,6 @@
         ctx.lineWidth = 1.4;
         ctx.stroke();
       } else {
-        // Wormk enrollado tipo resorte
         ctx.fillStyle = bodyColor;
         ctx.strokeStyle = outline;
         ctx.lineWidth = 2;
@@ -859,7 +920,6 @@
       ctx.restore();
     }
 
-    // Polyfill roundRect
     if (!CanvasRenderingContext2D.prototype.roundRect) {
       CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
         const rr = Math.min(r, w / 2, h / 2);
@@ -896,6 +956,7 @@
       drawGroundAndHouse();
       drawPlatforms();
       drawHazards();
+      drawPowerUps();
       drawPlayer();
 
       ctx.restore();
