@@ -561,25 +561,32 @@
         }
       }
 
-      // Colisión con power-ups
+      // 🔹 Colisión con power-ups (por contacto, y salto inmediato)
       for (const pu of powerUps) {
         if (pu.taken) continue;
         const dx = pu.x - player.x;
         const dy = pu.y - player.y;
-        const rr = pu.r + player.r * 0.6;
+        const rr = pu.r + player.r; // contacto más generoso
         if (dx * dx + dy * dy < rr * rr) {
           pu.taken = true;
+
           // Combo: cada orbe multiplica por 1.5 el salto actual
-          if (world.jumpBoostTimer > 0) {
+          if (world.jumpBoostTimer > 0 && world.jumpBoostMultiplier > 1.0) {
             world.jumpBoostMultiplier *= 1.5;
           } else {
             world.jumpBoostMultiplier = 1.5;
           }
+
           // Limitar para no romper el juego
           if (world.jumpBoostMultiplier > 3.5) {
             world.jumpBoostMultiplier = 3.5;
           }
-          world.jumpBoostTimer = 6; // refresca duración
+
+          // Refrescar duración
+          world.jumpBoostTimer = 6;
+
+          // Salto inmediato usando el nuevo multiplicador
+          player.vy = currentJumpVel() * 1.1;
         }
       }
       powerUps = powerUps.filter((pu) => !pu.taken && pu.y < VH + 40);
