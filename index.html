@@ -181,18 +181,21 @@
         plat.rangeMax = VW - PLATFORM_WIDTH - 10;
       }
 
-      if (zone.key !== "garden" && Math.random() < 0.18) {
-        powerUps.push({
-          x: x + PLATFORM_WIDTH / 2,
-          y: y - 8,
-          r: 4,
-          taken: false
-        });
-      }
+  // Power-up en algunas plataformas (excepto en Jardín)
+  // Mucho menos probabilidad y con distancia mínima entre orbes
+  const minPowerUpSpacing = 80; // píxeles virtuales (~8 plataformas)
+  const farEnough =
+    lastPowerUpY === null || Math.abs(y - lastPowerUpY) > minPowerUpSpacing;
 
-      return plat;
-    }
-
+  if (zone.key !== "garden" && farEnough && Math.random() < 0.06) { // 6% de prob.
+    powerUps.push({
+      x: x + PLATFORM_WIDTH / 2,
+      y: y - 8,
+      r: 4,
+      taken: false
+    });
+    lastPowerUpY = y;
+  }
     function initPlatforms() {
       platforms.length = 0;
       powerUps = [];
