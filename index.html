@@ -49,6 +49,7 @@
       text-transform: uppercase;
       text-shadow: 0 0 4px #000;
       pointer-events: none;
+      padding: 0 6px;
     }
     .hud-bottom {
       position: absolute;
@@ -59,10 +60,11 @@
       font-size: 12px;
       text-shadow: 0 0 4px #000;
       pointer-events: none;
+      padding: 0 6px;
     }
     .hint {
       position: absolute;
-      bottom: 30px;
+      bottom: 26px;
       left: 0;
       width: 100%;
       text-align: center;
@@ -101,8 +103,10 @@
       maxVX: 2.2,
       friction: 0.88,
       scrollY: 0,         // píxeles virtuales subidos
-      heightMeters: 0,    // scrollY convertido a "metros"
-      zoneName: "Jardín"
+      heightMeters: 0,
+      zoneName: "Jardín",
+      controlsInverted: false,
+      invertTimer: 0
     };
 
     const player = {
@@ -120,23 +124,55 @@
     const PLATFORM_GAP_MIN = 18;
     const PLATFORM_GAP_MAX = 28;
 
+    // Hazards
+    const meteorites = [];
+    const blackHoles = [];
+    let meteorTimer = 0;
+    let blackHoleTimer = 0;
+
     function resizeCanvas() {
       const frame = canvas.parentElement.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
       canvas.width = frame.width * dpr;
       canvas.height = frame.height * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.imageSmoothingEnabled = false; // look más pixel
+      ctx.imageSmoothingEnabled = false; // look pixel
+    }
+
+    function createPlatform(x, y) {
+      const plat = {
+        x,
+        y,
+        w: PLATFORM_WIDTH,
+        h: PLATFORM_HEIGHT,
+        vx: 0,
+        rangeMin: x,
+        rangeMax: x + PLATFORM_WIDTH
+      };
+
+      const zone = getZone(world.heightMeters);
+
+      // Plataformas móviles solo en zonas altas
+      if (
+        (zone.key === "milkyway" || zone.key === "virgo" || zone.key === "horizon") &&
+        Math.random() < 0.35
+      ) {
+        plat.vx = (Math.random() < 0.5 ? -0.4 : 0.4);
+        plat.rangeMin = 10;
+        plat.rangeMax = VW - PLATFORM_WIDTH - 10;
+      }
+
+      return plat;
     }
 
     function initPlatforms() {
       platforms.length = 0;
       let y = VH - 20;
-      platforms.push({ x: VW / 2 - PLATFORM_WIDTH / 2, y, w: PLATFORM_WIDTH, h: PLATFORM_HEIGHT });
+      platforms.push(createPlatform(VW / 2 - PLATFORM_WIDTH / 2, y));
       y -= 25;
       while (y > -VH) {
         const x = 10 + Math.random() * (VW - PLATFORM_WIDTH - 20);
-        platforms.push({ x, y, w: PLATFORM_WIDTH, h: PLATFORM_HEIGHT });
+        platforms.push(createPlatform(x, y));
         y -= PLATFORM_GAP_MIN + Math.random() * (PLATFORM_GAP_MAX - PLATFORM_GAP_MIN);
       }
     }
@@ -145,11 +181,19 @@
       world.scrollY = 0;
       world.heightMeters = 0;
       world.zoneName = "Jardín";
+      world.controlsInverted = false;
+      world.invertTimer = 0;
+      meteorites.length = 0;
+      blackHoles.length = 0;
+      meteorTimer = 0;
+      blackHoleTimer = 0;
+
       player.x = VW / 2;
       player.y = VH - 40;
       player.vx = 0;
       player.vy = -5;
       player.alive = true;
+
       initPlatforms();
     }
 
@@ -165,10 +209,10 @@
       }
     }
 
-    document.addEventListener("keydown", e => handleKeyboard(e, true));
-    document.addEventListener("keyup", e => handleKeyboard(e, false));
+    document.addEventListener("keydown", (e) => handleKeyboard(e, true));
+    document.addEventListener("keyup", (e) => handleKeyboard(e, false));
 
-    // Controles táctiles (mitad izquierda/derecha)
+    // Controles táctiles: izquierda/derecha según mitad de pantalla
     function updateTouch(e) {
       e.preventDefault();
       if (e.touches.length === 0) {
@@ -192,8 +236,8 @@
     canvas.addEventListener("touchend", updateTouch, { passive: false });
     canvas.addEventListener("touchcancel", updateTouch, { passive: false });
 
-    // Click en PC
-    canvas.addEventListener("mousedown", e => {
+    // Click en PC: también mueve
+    canvas.addEventListener("mousedown", (e) => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       if (x < rect.width * 0.5) leftHeld = true;
@@ -204,58 +248,221 @@
     });
 
     // --------- ZONAS DEL UNIVERSO ---------
-    // Trabajamos en "metros" (heightMeters)
+    // Rango sugerido:
+    // 0–150        Jardín
+    // 150–900      Cielo / Estratosfera
+    // 900–3500     Sistema Solar
+    // 3500–12000   Vía Láctea
+    // 12000–40000  Supercúmulo de Virgo
+    // 40000+       Horizonte Cósmico
     function getZone(heightM) {
       if (heightM < 150) {
         return {
+          key: "garden",
           name: "Jardín",
           top: "#19143f",
           mid: "#182b57",
           bottom: "#0f4a3a",
-          stars: 30
+          stars: 25
         };
-      } else if (heightM < 400) {
+      } else if (heightM < 900) {
         return {
+          key: "sky",
           name: "Cielo",
           top: "#203a7a",
           mid: "#246db0",
           bottom: "#63b3ff",
-          stars: 40
+          stars: 36
         };
-      } else if (heightM < 900) {
+      } else if (heightM < 3500) {
         return {
-          name: "Estratosfera",
-          top: "#291f6e",
-          mid: "#25437f",
-          bottom: "#247e9a",
+          key: "solar",
+          name: "Sistema Solar",
+          top: "#10152f",
+          mid: "#171f4f",
+          bottom: "#243a6b",
           stars: 60
         };
-      } else if (heightM < 1800) {
+      } else if (heightM < 12000) {
         return {
-          name: "Espacio",
+          key: "milkyway",
+          name: "Vía Láctea",
           top: "#050313",
-          mid: "#131534",
-          bottom: "#18294f",
+          mid: "#151437",
+          bottom: "#203b6a",
           stars: 90
+        };
+      } else if (heightM < 40000) {
+        return {
+          key: "virgo",
+          name: "Supercúmulo de Virgo",
+          top: "#05020c",
+          mid: "#24062e",
+          bottom: "#3c1458",
+          stars: 120
         };
       } else {
         return {
-          name: "Neón Cósmico",
+          key: "horizon",
+          name: "Horizonte Cósmico",
           top: "#2b0538",
           mid: "#3b1374",
           bottom: "#ff0077",
-          stars: 110
+          stars: 140
         };
+      }
+    }
+
+    // --------- HAZARDS ---------
+    function spawnMeteorite(zone) {
+      // Solo en Sistema Solar
+      if (zone.key !== "solar") return;
+      const side = Math.random() < 0.5 ? "left" : "right";
+      const y = 20 + Math.random() * (VH * 0.6);
+      const speed = 1.2 + Math.random() * 0.9;
+      const vy = 0.15 + Math.random() * 0.25;
+      const x = side === "left" ? -20 : VW + 20;
+      const vx = side === "left" ? speed : -speed;
+      meteorites.push({
+        x,
+        y,
+        vx,
+        vy,
+        r: 4 + Math.random() * 3
+      });
+    }
+
+    function spawnBlackHole(zone) {
+      // Solo en Vía Láctea
+      if (zone.key !== "milkyway") return;
+      const x = 20 + Math.random() * (VW - 40);
+      const y = -20 - Math.random() * 60; // aparece por arriba
+      blackHoles.push({
+        x,
+        y,
+        r: 7 + Math.random() * 4,
+        strength: 0.12 + Math.random() * 0.08
+      });
+    }
+
+    function updateHazards(dt, zone) {
+      meteorTimer += dt;
+      blackHoleTimer += dt;
+
+      // Spawn meteoritos cada ~1.3–2s en Sistema Solar
+      if (zone.key === "solar") {
+        const baseDelay = 1.6;
+        const randomExtra = Math.random() * 0.6;
+        if (meteorTimer > baseDelay + randomExtra) {
+          meteorTimer = 0;
+          spawnMeteorite(zone);
+        }
+      } else {
+        meteorTimer = 0; // resetea cuando sales de la zona
+      }
+
+      // Spawn agujeros negros cada ~4–7s en Vía Láctea
+      if (zone.key === "milkyway") {
+        const delay = 4 + Math.random() * 3;
+        if (blackHoleTimer > delay) {
+          blackHoleTimer = 0;
+          spawnBlackHole(zone);
+        }
+      } else {
+        blackHoleTimer = 0;
+      }
+
+      // Mover meteoritos
+      for (let i = meteorites.length - 1; i >= 0; i--) {
+        const m = meteorites[i];
+        m.x += m.vx;
+        m.y += m.vy;
+        if (m.y > VH + 40 || m.y < -60 || m.x < -60 || m.x > VW + 60) {
+          meteorites.splice(i, 1);
+        }
+      }
+
+      // Mover agujeros negros (bajan un poco)
+      for (let i = blackHoles.length - 1; i >= 0; i--) {
+        const b = blackHoles[i];
+        b.y += 0.05;
+        if (b.y > VH + 80) {
+          blackHoles.splice(i, 1);
+        }
+      }
+
+      // Efecto de atracción de agujeros negros
+      if (zone.key === "milkyway" || zone.key === "virgo" || zone.key === "horizon") {
+        for (const b of blackHoles) {
+          const dx = b.x - player.x;
+          const dy = b.y - player.y;
+          const distSq = dx * dx + dy * dy;
+          const maxInfluence = 70;
+          if (distSq < maxInfluence * maxInfluence) {
+            const dist = Math.sqrt(distSq) + 0.001;
+            const pull = b.strength * (1 - dist / maxInfluence);
+            player.vx += (dx / dist) * pull;
+          }
+        }
+      }
+    }
+
+    function applyHazardCollisions() {
+      // Meteoritos
+      for (const m of meteorites) {
+        const dx = m.x - player.x;
+        const dy = m.y - player.y;
+        const rr = (m.r + player.r * 0.7);
+        if (dx * dx + dy * dy < rr * rr) {
+          player.alive = false;
+          return;
+        }
+      }
+      // Agujeros negros
+      for (const b of blackHoles) {
+        const dx = b.x - player.x;
+        const dy = b.y - player.y;
+        const rr = (b.r + player.r * 0.6);
+        if (dx * dx + dy * dy < rr * rr) {
+          player.alive = false;
+          return;
+        }
       }
     }
 
     function update(dt) {
       if (!player.alive) return;
 
+      // Zona actual
+      const zone = getZone(world.heightMeters);
+
+      // Controles invertidos en Horizonte Cósmico
+      if (zone.key === "horizon") {
+        if (!world.controlsInverted && Math.random() < 0.003) {
+          world.controlsInverted = true;
+          world.invertTimer = 2.5; // segundos
+        }
+      }
+      if (world.controlsInverted) {
+        world.invertTimer -= dt;
+        if (world.invertTimer <= 0) {
+          world.controlsInverted = false;
+        }
+      }
+
       // Movimiento horizontal
-      if (leftHeld && !rightHeld) {
+      let moveLeft = leftHeld;
+      let moveRight = rightHeld;
+      if (world.controlsInverted) {
+        // intercambiar
+        const tmp = moveLeft;
+        moveLeft = moveRight;
+        moveRight = tmp;
+      }
+
+      if (moveLeft && !moveRight) {
         player.vx -= 0.22;
-      } else if (rightHeld && !leftHeld) {
+      } else if (moveRight && !moveLeft) {
         player.vx += 0.22;
       } else {
         player.vx *= world.friction;
@@ -270,11 +477,23 @@
       if (player.x < -player.r) player.x = VW + player.r;
       if (player.x > VW + player.r) player.x = -player.r;
 
-      // Física vertical
+      // Movimiento vertical
       player.vy += world.gravity;
       player.y += player.vy;
 
-      // Colisión con plataformas
+      // Mover plataformas móviles
+      for (const p of platforms) {
+        if (p.vx !== 0) {
+          p.x += p.vx;
+          if (p.x < p.rangeMin || p.x + p.w > p.rangeMax) {
+            p.vx *= -1;
+            if (p.x < p.rangeMin) p.x = p.rangeMin;
+            if (p.x + p.w > p.rangeMax) p.x = p.rangeMax - p.w;
+          }
+        }
+      }
+
+      // Colisión con plataformas (solo cuando cae)
       if (player.vy > 0) {
         const bottom = player.y + player.r;
         for (const p of platforms) {
@@ -297,32 +516,25 @@
         player.y += diff;
         world.scrollY += diff;
         for (const p of platforms) p.y += diff;
+        for (const m of meteorites) m.y += diff;
+        for (const b of blackHoles) b.y += diff;
 
-        // limpiar y crear plataformas
+        // limpiar plataformas que salen abajo
         for (let i = platforms.length - 1; i >= 0; i--) {
           if (platforms[i].y > VH + 20) platforms.splice(i, 1);
         }
+
+        // generar nuevas arriba
         let highestY = Infinity;
         for (const p of platforms) {
           if (p.y < highestY) highestY = p.y;
         }
         while (highestY > -VH) {
-          const gap = PLATFORM_GAP_MIN + Math.random() * (PLATFORM_GAP_MAX - PLATFORM_GAP_MAX);
+          const gap = PLATFORM_GAP_MIN + Math.random() * (PLATFORM_GAP_MAX - PLATFORM_GAP_MIN);
           highestY -= gap;
+          const x = 10 + Math.random() * (VW - PLATFORM_WIDTH - 20);
+          platforms.push(createPlatform(x, highestY));
         }
-      }
-
-      // ⚠️ Tenía un bug arriba, lo reescribo bien:
-      // Crear nuevas plataformas correctamente
-      let highestY = Infinity;
-      for (const p of platforms) {
-        if (p.y < highestY) highestY = p.y;
-      }
-      while (highestY > -VH) {
-        const gap = PLATFORM_GAP_MIN + Math.random() * (PLATFORM_GAP_MAX - PLATFORM_GAP_MIN);
-        highestY -= gap;
-        const x = 10 + Math.random() * (VW - PLATFORM_WIDTH - 20);
-        platforms.push({ x, y: highestY, w: PLATFORM_WIDTH, h: PLATFORM_HEIGHT });
       }
 
       // Game over si cae
@@ -334,21 +546,26 @@
       // Altura y zona
       const heightMeters = Math.floor(world.scrollY / 10);
       world.heightMeters = heightMeters;
-      const zone = getZone(heightMeters);
       world.zoneName = zone.name;
+
+      // Hazards (se actualizan después de mover al jugador)
+      updateHazards(dt, zone);
+      applyHazardCollisions();
 
       const bestMeters = Math.floor(bestHeight / 10);
       hudBottom.textContent =
         `Altura: ${heightMeters} m · Mejor: ${bestMeters} m` +
         (!player.alive ? " · Toca o presiona ESPACIO para reiniciar" : "");
-      hudTop.textContent = `ASCENSIÓN DE WORMK — Zona: ${zone.name}`;
+      hudTop.textContent =
+        `ASCENSIÓN DE WORMK — Zona: ${zone.name}` +
+        (world.controlsInverted ? " · Controles invertidos" : "");
     }
 
     function drawBackground() {
       const h = world.heightMeters;
       const zone = getZone(h);
 
-      // Degradado según zona
+      // Degradado base
       const grad = ctx.createLinearGradient(0, 0, 0, VH);
       grad.addColorStop(0, zone.top);
       grad.addColorStop(0.5, zone.mid);
@@ -356,18 +573,18 @@
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, VW, VH);
 
-      // "Capas" suaves tipo atmósfera
-      ctx.fillStyle = "rgba(255,255,255,0.04)";
+      // Capas suaves
+      ctx.fillStyle = "rgba(255,255,255,0.03)";
       ctx.beginPath();
-      ctx.ellipse(VW * 0.5, VH * 0.2, VW * 0.7, VH * 0.3, 0, 0, Math.PI * 2);
+      ctx.ellipse(VW * 0.5, VH * 0.22, VW * 0.7, VH * 0.3, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.beginPath();
-      ctx.ellipse(VW * 0.5, VH * 0.7, VW * 0.9, VH * 0.5, 0, 0, Math.PI * 2);
+      ctx.ellipse(VW * 0.5, VH * 0.75, VW * 0.9, VH * 0.55, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Estrellas: más cantidad mientras subes
-      const starsCount = getZone(h).stars;
-      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      // Estrellas
+      const starsCount = zone.stars;
+      ctx.fillStyle = "rgba(255,255,255,0.6)";
       for (let i = 0; i < starsCount; i++) {
         const x = (i * 17.13 + h * 0.7) % VW;
         const y = ((i * 53.77 + h * 0.4) % VH);
@@ -377,10 +594,64 @@
         ctx.fill();
       }
 
-      // En Neón Cósmico, un glow magenta extra
-      if (zone.name === "Neón Cósmico") {
-        const g2 = ctx.createRadialGradient(VW * 0.5, VH * 0.3, 10, VW * 0.5, VH * 0.3, VW * 0.8);
-        g2.addColorStop(0, "rgba(255,0,180,0.35)");
+      // Detalles extra por zona
+      if (zone.key === "solar") {
+        // Planeta tipo Saturno
+        ctx.save();
+        ctx.translate(VW * 0.7, VH * 0.25);
+        ctx.scale(1, 0.6);
+        ctx.fillStyle = "#f2d27e";
+        ctx.beginPath();
+        ctx.arc(0, 0, 14, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.translate(VW * 0.7, VH * 0.25);
+        ctx.strokeStyle = "rgba(255,240,200,0.9)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 20, 8, 0.3, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      } else if (zone.key === "milkyway") {
+        // Banda de la Vía Láctea
+        ctx.save();
+        ctx.translate(VW * 0.1, VH * 0.1);
+        ctx.rotate(-0.4);
+        const gradMW = ctx.createLinearGradient(0, 0, VW * 1.4, 0);
+        gradMW.addColorStop(0, "rgba(255,255,255,0)");
+        gradMW.addColorStop(0.3, "rgba(200,220,255,0.5)");
+        gradMW.addColorStop(0.7, "rgba(180,200,255,0.3)");
+        gradMW.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = gradMW;
+        ctx.fillRect(0, VH * 0.2, VW * 1.4, VH * 0.3);
+        ctx.restore();
+      } else if (zone.key === "virgo") {
+        // Pequeñas galaxias
+        for (let i = 0; i < 10; i++) {
+          const gx = (i * 29.1 + h * 0.2) % VW;
+          const gy = ((i * 41.7 + h * 0.3) % VH) * 0.9;
+          const rr = 2.5;
+          const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, rr * 2);
+          g.addColorStop(0, "rgba(255,255,255,0.9)");
+          g.addColorStop(1, "rgba(255,255,255,0)");
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(gx, gy, rr * 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (zone.key === "horizon") {
+        // Glow neón
+        const g2 = ctx.createRadialGradient(
+          VW * 0.5,
+          VH * 0.3,
+          10,
+          VW * 0.5,
+          VH * 0.3,
+          VW * 0.9
+        );
+        g2.addColorStop(0, "rgba(255,0,180,0.4)");
         g2.addColorStop(1, "rgba(255,0,180,0)");
         ctx.fillStyle = g2;
         ctx.fillRect(0, 0, VW, VH);
@@ -388,7 +659,7 @@
     }
 
     function drawGroundAndHouse() {
-      // La casa solo se ve cerca del suelo y se va desvaneciendo
+      // La casa solo se ve cerca del suelo y se desvanece
       const h = world.heightMeters;
       let alpha = 1 - h / 160;
       if (alpha <= 0) return;
@@ -401,7 +672,6 @@
       ctx.fillStyle = "#5a3b1f";
       ctx.fillRect(0, VH - groundH, VW, groundH);
 
-      // Casa
       const w = 45;
       const hHouse = 32;
       const x = 10;
@@ -427,7 +697,7 @@
       const winY = y + 7;
       const win1X = x + 6;
       const win2X = x + w - winSize - 6;
-      [win1X, win2X].forEach(wx => {
+      [win1X, win2X].forEach((wx) => {
         ctx.strokeRect(wx, winY, winSize, winSize);
         ctx.beginPath();
         ctx.moveTo(wx, winY);
@@ -446,7 +716,7 @@
       ctx.strokeStyle = "#d62b3e";
       ctx.lineWidth = 2;
       const legs = [-rx * 0.6, -rx * 0.2, rx * 0.2, rx * 0.6];
-      legs.forEach(dx => {
+      legs.forEach((dx) => {
         ctx.beginPath();
         ctx.moveTo(tx + dx, ty);
         ctx.lineTo(tx + dx, ty + 10);
@@ -464,6 +734,7 @@
 
     function drawPlatforms() {
       for (const p of platforms) {
+        // sombra
         ctx.fillStyle = "#2a1238";
         ctx.fillRect(p.x, p.y + 2, p.w, p.h);
 
@@ -472,6 +743,36 @@
         grad.addColorStop(1, "#d350ff");
         ctx.fillStyle = grad;
         ctx.fillRect(p.x, p.y, p.w, p.h);
+      }
+    }
+
+    function drawHazards() {
+      // Meteoritos
+      for (const m of meteorites) {
+        ctx.save();
+        ctx.translate(m.x, m.y);
+        ctx.rotate(Math.atan2(m.vy, m.vx));
+        ctx.fillStyle = "#ffb46b";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, m.r * 1.6, m.r, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.7)";
+        ctx.beginPath();
+        ctx.arc(-m.r * 0.3, -m.r * 0.3, m.r * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Agujeros negros
+      for (const b of blackHoles) {
+        const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r * 2.2);
+        g.addColorStop(0, "rgba(0,0,0,1)");
+        g.addColorStop(0.5, "rgba(40,0,60,0.9)");
+        g.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r * 2.2, 0, Math.PI * 2);
+        ctx.fill();
       }
     }
 
@@ -492,6 +793,7 @@
       const outline = "#2b1a0f";
 
       if (jumping) {
+        // Wormk estirado
         ctx.fillStyle = bodyColor;
         ctx.strokeStyle = outline;
         ctx.lineWidth = 2;
@@ -517,6 +819,7 @@
         ctx.lineWidth = 1.4;
         ctx.stroke();
       } else {
+        // Wormk enrollado tipo resorte
         ctx.fillStyle = bodyColor;
         ctx.strokeStyle = outline;
         ctx.lineWidth = 2;
@@ -556,6 +859,7 @@
       ctx.restore();
     }
 
+    // Polyfill roundRect
     if (!CanvasRenderingContext2D.prototype.roundRect) {
       CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
         const rr = Math.min(r, w / 2, h / 2);
@@ -576,15 +880,22 @@
 
       update(dt);
 
-      // dibujar
+      const dpr = window.devicePixelRatio || 1;
       ctx.save();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const dpr = window.devicePixelRatio || 1;
-      ctx.setTransform(canvas.width / (VW * dpr), 0, 0, canvas.height / (VH * dpr), 0, 0);
+      ctx.setTransform(
+        canvas.width / (VW * dpr),
+        0,
+        0,
+        canvas.height / (VH * dpr),
+        0,
+        0
+      );
 
       drawBackground();
       drawGroundAndHouse();
       drawPlatforms();
+      drawHazards();
       drawPlayer();
 
       ctx.restore();
