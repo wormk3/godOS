@@ -449,8 +449,13 @@
             player.x > p.x - player.r &&
             player.x < p.x + p.w + player.r
           ) {
+            // Usamos el multiplicador ACTUAL para este salto...
+            const jumpVel = currentJumpVel();
             player.y = p.y - player.r;
-            player.vy = currentJumpVel();
+            player.vy = jumpVel;
+
+            // ...y justo después lo consumimos: siguiente salto vuelve a x1
+            world.jumpBoostMultiplier = 1.0;
           }
         }
       }
@@ -490,16 +495,17 @@
         if (dx * dx + dy * dy < rr * rr) {
           pu.taken = true;
 
-          if (world.jumpBoostTimer > 0 && world.jumpBoostMultiplier > 1.0) {
-            world.jumpBoostMultiplier *= 1.5;
-          } else {
+          // Cada flecha aumenta el multiplicador, pero solo hasta x3.5
+          if (world.jumpBoostMultiplier < 1.5) {
             world.jumpBoostMultiplier = 1.5;
+          } else {
+            world.jumpBoostMultiplier *= 1.5;
           }
           if (world.jumpBoostMultiplier > 3.5) {
             world.jumpBoostMultiplier = 3.5;
           }
 
-          world.jumpBoostTimer = 6;
+          // Empujón instantáneo hacia arriba usando el nuevo multiplicador
           player.vy = currentJumpVel() * 1.1;
         }
       }
