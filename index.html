@@ -99,17 +99,17 @@
     let bestHeight = 0;
 
     const world = {
-      gravity: 0.4,            // un poco más fuerte
-      baseJumpVel: -8.5,       // salto un pelín más alto
+      gravity: 0.4,
+      baseJumpVel: -8.5,
       maxVX: 2.4,
-      friction: 0.9,           // se usa con dt
+      friction: 0.9,
       scrollY: 0,
       heightMeters: 0,
       zoneName: "Jardín",
       controlsInverted: false,
       invertTimer: 0,
-      jumpBoostTimer: 0,
-      jumpBoostMultiplier: 1.0
+      jumpBoostTimer: 0,       // tiempo restante del “escalón” actual
+      jumpBoostMultiplier: 1.0 // 1.0, 1.5, 2.0, 2.5, 3.0
     };
 
     function currentJumpVel() {
@@ -387,14 +387,23 @@
 
       const zone = getZone(world.heightMeters);
 
+      // --- DECAY DEL COMBO ---
       if (world.jumpBoostTimer > 0) {
         world.jumpBoostTimer -= dt;
-        if (world.jumpBoostTimer <= 0) {
-          world.jumpBoostTimer = 0;
-          world.jumpBoostMultiplier = 1.0;
+        if (world.jumpBoostTimer <= 0 && world.jumpBoostMultiplier > 1.0) {
+          // baja un escalón
+          world.jumpBoostMultiplier -= 0.5;
+          if (world.jumpBoostMultiplier > 1.0) {
+            // siguiente escalón dura 2 s
+            world.jumpBoostTimer = 2;
+          } else {
+            world.jumpBoostMultiplier = 1.0;
+            world.jumpBoostTimer = 0;
+          }
         }
       }
 
+      // Controles invertidos aleatorios solo en horizonte
       if (zone.key === "horizon") {
         if (!world.controlsInverted && Math.random() < 0.003 * dt * 60) {
           world.controlsInverted = true;
@@ -406,6 +415,7 @@
         if (world.invertTimer <= 0) world.controlsInverted = false;
       }
 
+      // Controles
       let moveLeft = leftHeld;
       let moveRight = rightHeld;
       if (world.controlsInverted) {
@@ -414,15 +424,13 @@
         moveRight = tmp;
       }
 
-      const accel = 0.26; // un poco más rápido
+      const accel = 0.26;
       if (moveLeft && !moveRight) {
         player.vx -= accel * dt * 60;
       } else if (moveRight && !moveLeft) {
         player.vx += accel * dt * 60;
       } else {
-        // fricción con dt
-        const frictionPerFrame = world.friction;
-        const friction = Math.pow(frictionPerFrame, dt * 60);
+        const friction = Math.pow(world.friction, dt * 60);
         player.vx *= friction;
       }
 
@@ -490,6 +498,7 @@
         }
       }
 
+      // --- COLISIÓN CON ORBES / POWERUPS ---
       for (const pu of powerUps) {
         if (pu.taken) continue;
         const dx = pu.x - player.x;
@@ -498,16 +507,16 @@
         if (dx * dx + dy * dy < rr * rr) {
           pu.taken = true;
 
-          if (world.jumpBoostTimer > 0 && world.jumpBoostMultiplier > 1.0) {
-            world.jumpBoostMultiplier *= 1.5;
-          } else {
-            world.jumpBoostMultiplier = 1.5;
-          }
-          if (world.jumpBoostMultiplier > 3.5) {
-            world.jumpBoostMultiplier = 3.5;
+          // sube un escalón hasta máximo x3.0
+          world.jumpBoostMultiplier += 0.5;
+          if (world.jumpBoostMultiplier > 3.0) {
+            world.jumpBoostMultiplier = 3.0;
           }
 
-          world.jumpBoostTimer = 6;
+          // cada orbe reinicia el escalón actual (2.5 s)
+          world.jumpBoostTimer = 2.5;
+
+          // salto inmediato aprovechando el nuevo nivel
           player.vy = currentJumpVel() * 1.1;
         }
       }
@@ -864,8 +873,7 @@
     }
 
     function gameLoop(timestamp) {
-      // dt en "frames": 1 ≈ 60fps
-      const dt = Math.min((timestamp - lastTime) / 1000, 0.05); // máx ~50ms
+      const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
       lastTime = timestamp;
 
       update(dt);
