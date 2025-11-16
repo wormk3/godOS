@@ -387,13 +387,6 @@
 
       const zone = getZone(world.heightMeters);
 
-      if (world.jumpBoostTimer > 0) {
-        world.jumpBoostTimer -= dt;
-        if (world.jumpBoostTimer <= 0) {
-          world.jumpBoostTimer = 0;
-          world.jumpBoostMultiplier = 1.0;
-        }
-      }
 
       if (zone.key === "horizon") {
         if (!world.controlsInverted && Math.random() < 0.003 * dt * 60) {
