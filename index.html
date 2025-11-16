@@ -5,14 +5,9 @@
   <title>Ascensión de Wormk</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
   <style>
-    :root {
-      color-scheme: dark;
-    }
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
       min-height: 100vh;
       display: flex;
@@ -22,9 +17,10 @@
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       color: #fff;
     }
+
     .frame {
       width: min(420px, 100vw);
-      aspect-ratio: 9/16;
+      aspect-ratio: 9 / 16;
       border-radius: 16px;
       border: 2px solid #ff55dd;
       box-shadow: 0 0 32px rgba(255, 85, 221, 0.4);
@@ -33,11 +29,14 @@
       position: relative;
       touch-action: none;
     }
+
     canvas {
       width: 100%;
       height: 100%;
       display: block;
+      image-rendering: pixelated;
     }
+
     .hud-top {
       position: absolute;
       top: 4px;
@@ -51,6 +50,7 @@
       pointer-events: none;
       padding: 0 6px;
     }
+
     .hud-bottom {
       position: absolute;
       bottom: 4px;
@@ -62,6 +62,7 @@
       pointer-events: none;
       padding: 0 6px;
     }
+
     .hint {
       position: absolute;
       bottom: 26px;
@@ -77,7 +78,8 @@
 <body>
   <div class="frame">
     <div class="hud-top" id="hudTop">ASCENSIÓN DE WORMK — Zona: Jardín</div>
-    <canvas id="game"></canvas>
+    <!-- Canvas fijo al mundo lógico 180x320 -->
+    <canvas id="game" width="180" height="320"></canvas>
     <div class="hud-bottom" id="hudBottom">Altura: 0 m · Mejor: 0 m</div>
     <div class="hint">PC: Flechas ← → · Móvil: toca izquierda / derecha</div>
   </div>
@@ -88,7 +90,7 @@
     const hudBottom = document.getElementById("hudBottom");
     const hudTop = document.getElementById("hudTop");
 
-    // Mundo "pixel" lógico
+    // Mundo lógico fijo
     const VW = 180;
     const VH = 320;
 
@@ -102,13 +104,13 @@
       baseJumpVel: -7.8,
       maxVX: 2.2,
       friction: 0.88,
-      scrollY: 0,         // píxeles virtuales subidos
+      scrollY: 0,
       heightMeters: 0,
       zoneName: "Jardín",
       controlsInverted: false,
       invertTimer: 0,
-      jumpBoostTimer: 0,        // tiempo restante del buff
-      jumpBoostMultiplier: 1.0  // multiplicador actual del salto
+      jumpBoostTimer: 0,
+      jumpBoostMultiplier: 1.0
     };
 
     function currentJumpVel() {
@@ -130,23 +132,12 @@
     const PLATFORM_GAP_MIN = 18;
     const PLATFORM_GAP_MAX = 28;
 
-    // Hazards
     const meteorites = [];
     const blackHoles = [];
     let meteorTimer = 0;
     let blackHoleTimer = 0;
 
-    // Power-ups
     let powerUps = [];
-
-    function resizeCanvas() {
-      const frame = canvas.parentElement.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = frame.width * dpr;
-      canvas.height = frame.height * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.imageSmoothingEnabled = false;
-    }
 
     function getZone(heightM) {
       if (heightM < 150) {
@@ -219,7 +210,6 @@
 
       const zone = getZone(world.heightMeters);
 
-      // Plataformas móviles en zonas altas
       if (
         (zone.key === "milkyway" || zone.key === "virgo" || zone.key === "horizon") &&
         Math.random() < 0.35
@@ -229,7 +219,6 @@
         plat.rangeMax = VW - PLATFORM_WIDTH - 10;
       }
 
-      // Power-up en algunas plataformas (excepto en Jardín)
       if (zone.key !== "garden" && Math.random() < 0.18) {
         powerUps.push({
           x: x + PLATFORM_WIDTH / 2,
@@ -328,6 +317,7 @@
     });
 
     // --------- HAZARDS ---------
+
     function spawnMeteorite() {
       const side = Math.random() < 0.5 ? "left" : "right";
       const y = 20 + Math.random() * (VH * 0.6);
@@ -335,13 +325,7 @@
       const vy = 0.08 + Math.random() * 0.18;
       const x = side === "left" ? -20 : VW + 20;
       const vx = side === "left" ? speed : -speed;
-      meteorites.push({
-        x,
-        y,
-        vx,
-        vy,
-        r: 4 + Math.random() * 3
-      });
+      meteorites.push({ x, y, vx, vy, r: 4 + Math.random() * 3 });
     }
 
     function spawnBlackHole() {
@@ -359,7 +343,6 @@
       meteorTimer += dt;
       blackHoleTimer += dt;
 
-      // Meteoritos en Sistema Solar (2 a 4 máximo)
       if (zone.key === "solar") {
         const minM = 2;
         const maxM = 4;
@@ -378,7 +361,6 @@
         meteorTimer = 0;
       }
 
-      // Agujeros negros en Vía Láctea
       if (zone.key === "milkyway") {
         if (blackHoleTimer > 4 + Math.random() * 3) {
           spawnBlackHole();
@@ -388,7 +370,6 @@
         blackHoleTimer = 0;
       }
 
-      // Mover meteoritos
       for (let i = meteorites.length - 1; i >= 0; i--) {
         const m = meteorites[i];
         m.x += m.vx;
@@ -398,16 +379,12 @@
         }
       }
 
-      // Mover agujeros negros
       for (let i = blackHoles.length - 1; i >= 0; i--) {
         const b = blackHoles[i];
         b.y += 0.05;
-        if (b.y > VH + 80) {
-          blackHoles.splice(i, 1);
-        }
+        if (b.y > VH + 80) blackHoles.splice(i, 1);
       }
 
-      // Atracción
       if (zone.key === "milkyway" || zone.key === "virgo" || zone.key === "horizon") {
         for (const b of blackHoles) {
           const dx = b.x - player.x;
@@ -424,7 +401,6 @@
     }
 
     function applyHazardCollisions() {
-      // Meteoritos
       for (const m of meteorites) {
         const dx = m.x - player.x;
         const dy = m.y - player.y;
@@ -434,7 +410,7 @@
           return;
         }
       }
-      // Agujeros negros
+
       for (const b of blackHoles) {
         const dx = b.x - player.x;
         const dy = b.y - player.y;
@@ -451,16 +427,14 @@
 
       const zone = getZone(world.heightMeters);
 
-      // Timer de power-up
       if (world.jumpBoostTimer > 0) {
         world.jumpBoostTimer -= dt;
         if (world.jumpBoostTimer <= 0) {
           world.jumpBoostTimer = 0;
-          world.jumpBoostMultiplier = 1.0; // se acaba el combo
+          world.jumpBoostMultiplier = 1.0;
         }
       }
 
-      // Controles invertidos en Horizonte Cósmico
       if (zone.key === "horizon") {
         if (!world.controlsInverted && Math.random() < 0.003) {
           world.controlsInverted = true;
@@ -469,12 +443,9 @@
       }
       if (world.controlsInverted) {
         world.invertTimer -= dt;
-        if (world.invertTimer <= 0) {
-          world.controlsInverted = false;
-        }
+        if (world.invertTimer <= 0) world.controlsInverted = false;
       }
 
-      // Movimiento horizontal
       let moveLeft = leftHeld;
       let moveRight = rightHeld;
       if (world.controlsInverted) {
@@ -499,11 +470,9 @@
       if (player.x < -player.r) player.x = VW + player.r;
       if (player.x > VW + player.r) player.x = -player.r;
 
-      // Movimiento vertical
       player.vy += world.gravity;
       player.y += player.vy;
 
-      // Plataformas móviles
       for (const p of platforms) {
         if (p.vx !== 0) {
           p.x += p.vx;
@@ -515,7 +484,6 @@
         }
       }
 
-      // Colisión con plataformas (cayendo)
       if (player.vy > 0) {
         const bottom = player.y + player.r;
         for (const p of platforms) {
@@ -531,7 +499,6 @@
         }
       }
 
-      // Scroll
       const camY = VH * 0.4;
       if (player.y < camY) {
         const diff = camY - player.y;
@@ -542,13 +509,11 @@
         for (const b of blackHoles) b.y += diff;
         for (const pu of powerUps) pu.y += diff;
 
-        // limpiar abajo
         for (let i = platforms.length - 1; i >= 0; i--) {
           if (platforms[i].y > VH + 20) platforms.splice(i, 1);
         }
         powerUps = powerUps.filter((pu) => pu.y < VH + 40 && !pu.taken);
 
-        // nuevas arriba
         let highestY = Infinity;
         for (const p of platforms) {
           if (p.y < highestY) highestY = p.y;
@@ -561,49 +526,39 @@
         }
       }
 
-      // 🔹 Colisión con power-ups (por contacto, y salto inmediato)
       for (const pu of powerUps) {
         if (pu.taken) continue;
         const dx = pu.x - player.x;
         const dy = pu.y - player.y;
-        const rr = pu.r + player.r; // contacto más generoso
+        const rr = pu.r + player.r;
         if (dx * dx + dy * dy < rr * rr) {
           pu.taken = true;
 
-          // Combo: cada orbe multiplica por 1.5 el salto actual
           if (world.jumpBoostTimer > 0 && world.jumpBoostMultiplier > 1.0) {
             world.jumpBoostMultiplier *= 1.5;
           } else {
             world.jumpBoostMultiplier = 1.5;
           }
-
-          // Limitar para no romper el juego
           if (world.jumpBoostMultiplier > 3.5) {
             world.jumpBoostMultiplier = 3.5;
           }
 
-          // Refrescar duración
           world.jumpBoostTimer = 6;
-
-          // Salto inmediato usando el nuevo multiplicador
           player.vy = currentJumpVel() * 1.1;
         }
       }
       powerUps = powerUps.filter((pu) => !pu.taken && pu.y < VH + 40);
 
-      // Game over
       if (player.y - player.r > VH + 10) {
         player.alive = false;
         if (world.scrollY > bestHeight) bestHeight = world.scrollY;
       }
 
-      // Altura
       const heightMeters = Math.floor(world.scrollY / 10);
       world.heightMeters = heightMeters;
       const zoneNow = getZone(heightMeters);
       world.zoneName = zoneNow.name;
 
-      // Hazards
       updateHazards(dt, zoneNow);
       applyHazardCollisions();
 
@@ -619,6 +574,8 @@
       }
       hudTop.textContent = topText;
     }
+
+    // ---------- DIBUJO ----------
 
     function drawBackground() {
       const h = world.heightMeters;
@@ -949,18 +906,7 @@
 
       update(dt);
 
-      const dpr = window.devicePixelRatio || 1;
-      ctx.save();
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.setTransform(
-        canvas.width / (VW * dpr),
-        0,
-        0,
-        canvas.height / (VH * dpr),
-        0,
-        0
-      );
-
+      ctx.clearRect(0, 0, VW, VH);
       drawBackground();
       drawGroundAndHouse();
       drawPlatforms();
@@ -968,13 +914,9 @@
       drawPowerUps();
       drawPlayer();
 
-      ctx.restore();
-
       requestAnimationFrame(gameLoop);
     }
 
-    window.addEventListener("resize", resizeCanvas);
-    resizeCanvas();
     resetGame();
     requestAnimationFrame(gameLoop);
   </script>
