@@ -78,7 +78,7 @@
 <body>
   <div class="frame">
     <div class="hud-top" id="hudTop">ASCENSIÓN DE WORMK — Zona: Jardín</div>
-    <!-- Canvas fijo al mundo lógico 180x320 -->
+    <!-- Mundo lógico fijo 180x320 -->
     <canvas id="game" width="180" height="320"></canvas>
     <div class="hud-bottom" id="hudBottom">Altura: 0 m · Mejor: 0 m</div>
     <div class="hint">PC: Flechas ← → · Móvil: toca izquierda / derecha</div>
@@ -90,7 +90,6 @@
     const hudBottom = document.getElementById("hudBottom");
     const hudTop = document.getElementById("hudTop");
 
-    // Mundo lógico fijo
     const VW = 180;
     const VH = 320;
 
@@ -100,10 +99,10 @@
     let bestHeight = 0;
 
     const world = {
-      gravity: 0.35,
-      baseJumpVel: -7.8,
-      maxVX: 2.2,
-      friction: 0.88,
+      gravity: 0.4,            // un poco más fuerte
+      baseJumpVel: -8.5,       // salto un pelín más alto
+      maxVX: 2.4,
+      friction: 0.9,           // se usa con dt
       scrollY: 0,
       heightMeters: 0,
       zoneName: "Jardín",
@@ -141,59 +140,23 @@
 
     function getZone(heightM) {
       if (heightM < 150) {
-        return {
-          key: "garden",
-          name: "Jardín",
-          top: "#19143f",
-          mid: "#182b57",
-          bottom: "#0f4a3a",
-          stars: 25
-        };
+        return { key: "garden", name: "Jardín",
+          top: "#19143f", mid: "#182b57", bottom: "#0f4a3a", stars: 25 };
       } else if (heightM < 900) {
-        return {
-          key: "sky",
-          name: "Cielo",
-          top: "#203a7a",
-          mid: "#246db0",
-          bottom: "#63b3ff",
-          stars: 36
-        };
+        return { key: "sky", name: "Cielo",
+          top: "#203a7a", mid: "#246db0", bottom: "#63b3ff", stars: 36 };
       } else if (heightM < 3500) {
-        return {
-          key: "solar",
-          name: "Sistema Solar",
-          top: "#10152f",
-          mid: "#171f4f",
-          bottom: "#243a6b",
-          stars: 60
-        };
+        return { key: "solar", name: "Sistema Solar",
+          top: "#10152f", mid: "#171f4f", bottom: "#243a6b", stars: 60 };
       } else if (heightM < 12000) {
-        return {
-          key: "milkyway",
-          name: "Vía Láctea",
-          top: "#050313",
-          mid: "#151437",
-          bottom: "#203b6a",
-          stars: 90
-        };
+        return { key: "milkyway", name: "Vía Láctea",
+          top: "#050313", mid: "#151437", bottom: "#203b6a", stars: 90 };
       } else if (heightM < 40000) {
-        return {
-          key: "virgo",
-          name: "Supercúmulo de Virgo",
-          top: "#05020c",
-          mid: "#24062e",
-          bottom: "#3c1458",
-          stars: 120
-        };
+        return { key: "virgo", name: "Supercúmulo de Virgo",
+          top: "#05020c", mid: "#24062e", bottom: "#3c1458", stars: 120 };
       } else {
-        return {
-          key: "horizon",
-          name: "Horizonte Cósmico",
-          top: "#2b0538",
-          mid: "#3b1374",
-          bottom: "#ff0077",
-          stars: 140
-        };
+        return { key: "horizon", name: "Horizonte Cósmico",
+          top: "#2b0538", mid: "#3b1374", bottom: "#ff0077", stars: 140 };
       }
     }
 
@@ -210,10 +173,8 @@
 
       const zone = getZone(world.heightMeters);
 
-      if (
-        (zone.key === "milkyway" || zone.key === "virgo" || zone.key === "horizon") &&
-        Math.random() < 0.35
-      ) {
+      if ((zone.key === "milkyway" || zone.key === "virgo" || zone.key === "horizon") &&
+          Math.random() < 0.35) {
         plat.vx = (Math.random() < 0.5 ? -0.4 : 0.4);
         plat.rangeMin = 10;
         plat.rangeMax = VW - PLATFORM_WIDTH - 10;
@@ -317,7 +278,6 @@
     });
 
     // --------- HAZARDS ---------
-
     function spawnMeteorite() {
       const side = Math.random() < 0.5 ? "left" : "right";
       const y = 20 + Math.random() * (VH * 0.6);
@@ -372,8 +332,8 @@
 
       for (let i = meteorites.length - 1; i >= 0; i--) {
         const m = meteorites[i];
-        m.x += m.vx;
-        m.y += m.vy;
+        m.x += m.vx * dt * 60;
+        m.y += m.vy * dt * 60;
         if (m.y > VH + 40 || m.y < -60 || m.x < -60 || m.x > VW + 60) {
           meteorites.splice(i, 1);
         }
@@ -381,7 +341,7 @@
 
       for (let i = blackHoles.length - 1; i >= 0; i--) {
         const b = blackHoles[i];
-        b.y += 0.05;
+        b.y += 0.05 * dt * 60;
         if (b.y > VH + 80) blackHoles.splice(i, 1);
       }
 
@@ -394,7 +354,7 @@
           if (distSq < maxInfluence * maxInfluence) {
             const dist = Math.sqrt(distSq) + 0.001;
             const pull = b.strength * (1 - dist / maxInfluence);
-            player.vx += (dx / dist) * pull;
+            player.vx += (dx / dist) * pull * dt * 60;
           }
         }
       }
@@ -436,7 +396,7 @@
       }
 
       if (zone.key === "horizon") {
-        if (!world.controlsInverted && Math.random() < 0.003) {
+        if (!world.controlsInverted && Math.random() < 0.003 * dt * 60) {
           world.controlsInverted = true;
           world.invertTimer = 2.5;
         }
@@ -454,28 +414,32 @@
         moveRight = tmp;
       }
 
+      const accel = 0.26; // un poco más rápido
       if (moveLeft && !moveRight) {
-        player.vx -= 0.22;
+        player.vx -= accel * dt * 60;
       } else if (moveRight && !moveLeft) {
-        player.vx += 0.22;
+        player.vx += accel * dt * 60;
       } else {
-        player.vx *= world.friction;
+        // fricción con dt
+        const frictionPerFrame = world.friction;
+        const friction = Math.pow(frictionPerFrame, dt * 60);
+        player.vx *= friction;
       }
 
       if (player.vx > world.maxVX) player.vx = world.maxVX;
       if (player.vx < -world.maxVX) player.vx = -world.maxVX;
 
-      player.x += player.vx;
+      player.x += player.vx * dt * 60;
 
       if (player.x < -player.r) player.x = VW + player.r;
       if (player.x > VW + player.r) player.x = -player.r;
 
-      player.vy += world.gravity;
-      player.y += player.vy;
+      player.vy += world.gravity * dt * 60;
+      player.y += player.vy * dt * 60;
 
       for (const p of platforms) {
         if (p.vx !== 0) {
-          p.x += p.vx;
+          p.x += p.vx * dt * 60;
           if (p.x < p.rangeMin || p.x + p.w > p.rangeMax) {
             p.vx *= -1;
             if (p.x < p.rangeMin) p.x = p.rangeMin;
@@ -489,7 +453,7 @@
         for (const p of platforms) {
           if (
             bottom > p.y &&
-            bottom < p.y + p.h + player.vy + 1 &&
+            bottom < p.y + p.h + player.vy * dt * 60 + 1 &&
             player.x > p.x - player.r &&
             player.x < p.x + p.w + player.r
           ) {
@@ -515,11 +479,11 @@
         powerUps = powerUps.filter((pu) => pu.y < VH + 40 && !pu.taken);
 
         let highestY = Infinity;
-        for (const p of platforms) {
-          if (p.y < highestY) highestY = p.y;
-        }
+        for (const p of platforms) if (p.y < highestY) highestY = p.y;
+
         while (highestY > -VH) {
-          const gap = PLATFORM_GAP_MIN + Math.random() * (PLATFORM_GAP_MAX - PLATFORM_GAP_MIN);
+          const gap = PLATFORM_GAP_MIN + Math.random() *
+                      (PLATFORM_GAP_MAX - PLATFORM_GAP_MIN);
           highestY -= gap;
           const x = 10 + Math.random() * (VW - PLATFORM_WIDTH - 20);
           platforms.push(createPlatform(x, highestY));
@@ -576,7 +540,6 @@
     }
 
     // ---------- DIBUJO ----------
-
     function drawBackground() {
       const h = world.heightMeters;
       const zone = getZone(h);
@@ -901,7 +864,8 @@
     }
 
     function gameLoop(timestamp) {
-      const dt = Math.min((timestamp - lastTime) / 16.67, 2);
+      // dt en "frames": 1 ≈ 60fps
+      const dt = Math.min((timestamp - lastTime) / 1000, 0.05); // máx ~50ms
       lastTime = timestamp;
 
       update(dt);
