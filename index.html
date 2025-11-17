@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <title>Thunder Ascension</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  
   <style>
     :root { color-scheme: dark; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1032,5 +1033,49 @@ function drawPlayer() {
     resetGame();
     requestAnimationFrame(gameLoop);
   </script>
+  <script>
+const SPRITE_WIDTH = 384;
+const SPRITE_HEIGHT = 512;
+
+const sprite = new Image();
+sprite.src = "thunder-sprites.png"; // ← cámbialo por tu archivo nuevo
+
+let currentFrame = 0;
+
+function drawThunder(ctx, x, y, state) {
+
+    let frameX = 0;
+    let frameY = 0;
+
+    if (state === "idle") {
+        frameX = 0;
+        frameY = 0;
+    }
+
+    if (state === "jump-right") {
+        frameX = SPRITE_WIDTH;
+        frameY = 0;
+    }
+
+    if (state === "jump-left") {
+        frameX = 0;
+        frameY = SPRITE_HEIGHT;
+    }
+
+    if (state === "fall") {
+        frameX = SPRITE_WIDTH;
+        frameY = SPRITE_HEIGHT;
+    }
+
+    ctx.drawImage(
+        sprite,
+        frameX, frameY,
+        SPRITE_WIDTH, SPRITE_HEIGHT,
+        x, y,
+        SPRITE_WIDTH, SPRITE_HEIGHT
+    );
+}
+</script>
+
 </body>
 </html>
