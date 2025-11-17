@@ -90,6 +90,47 @@
     const ctx = canvas.getContext("2d");
     const hudBottom = document.getElementById("hudBottom");
     const hudTop = document.getElementById("hudTop");
+    // --------- SPRITE DE THUNDER ---------
+    const SPRITE_WIDTH = 384;   // tamaño real de cada frame en el PNG
+    const SPRITE_HEIGHT = 512;
+
+    // tamaño al que lo dibujamos dentro del canvas (escalado)
+    const SPRITE_DRAW_WIDTH = 32;
+    const SPRITE_DRAW_HEIGHT = 42;
+
+    const thunderSprite = new Image();
+    // como index.html y thunder-sprites.png están en la raíz del repo:
+    thunderSprite.src = "thunder-sprites.png";
+    // si quieres usar GitHub Pages directamente:
+    // thunderSprite.src = "https://wormk3.github.io/godOS/thunder-sprites.png";
+
+    function drawThunder(ctx, x, y, state) {
+      let frameX = 0;
+      let frameY = 0;
+
+      if (state === "idle") {
+        frameX = 0;
+        frameY = 0;
+      } else if (state === "jump-right") {
+        frameX = SPRITE_WIDTH;
+        frameY = 0;
+      } else if (state === "jump-left") {
+        frameX = 0;
+        frameY = SPRITE_HEIGHT;
+      } else if (state === "fall") {
+        frameX = SPRITE_WIDTH;
+        frameY = SPRITE_HEIGHT;
+      }
+
+      ctx.drawImage(
+        thunderSprite,
+        frameX, frameY,
+        SPRITE_WIDTH, SPRITE_HEIGHT,
+        x - SPRITE_DRAW_WIDTH / 2,
+        y - SPRITE_DRAW_HEIGHT / 2,
+        SPRITE_DRAW_WIDTH, SPRITE_DRAW_HEIGHT
+      );
+    }
 
     const VW = 180;
     const VH = 320;
@@ -798,205 +839,42 @@ function drawGround() {
       }
     }
 
-    // --------- THUNDER (Jugador) ---------
-function drawPlayer() {
-  const { x, y, r } = player;
-  const jumping = player.vy < -1.5;
-  const boosted = world.jumpBoostMultiplier > 1.01;
+    // --------- THUNDER (Jugador) CON SPRITE ---------
+    function drawPlayer() {
+      let state = "idle";
 
-  ctx.save();
-  ctx.translate(x, y);
+      if (!player.alive) {
+        state = "fall";
+      } else if (player.vy < -0.5) {
+        // subiendo: usa la dirección horizontal para escoger sprite
+        state = player.vx >= 0 ? "jump-right" : "jump-left";
+      } else if (player.vy > 1) {
+        // cayendo
+        state = "fall";
+      } else {
+        // casi quieto / en plataforma
+        state = "idle";
+      }
 
-  // ligera inclinación según movimiento
-  const tilt = player.vx * 0.04;
-  ctx.rotate(tilt);
+      // si quieres mantener el glow cuando hay boost:
+      if (world.jumpBoostMultiplier > 1.01) {
+        ctx.save();
+        ctx.globalAlpha = 0.7;
+        const g = ctx.createRadialGradient(
+          player.x, player.y, 0,
+          player.x, player.y, 30
+        );
+        g.addColorStop(0, "rgba(0,255,170,0.5)");
+        g.addColorStop(1, "rgba(0,255,170,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, 30, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
 
-  // Sombra
-  ctx.fillStyle = "rgba(0,0,0,0.35)";
-  ctx.beginPath();
-  ctx.ellipse(0, r + 6, r * 1.8, r * 0.9, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Glow si hay boost
-  if (boosted) {
-    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 4.5);
-    g.addColorStop(0, "rgba(0,255,170,0.4)");
-    g.addColorStop(1, "rgba(0,255,170,0)");
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(0, -r * 1.0, r * 4.5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Colores Thunder
-  const whiteFur  = "#fcfcfc";
-  const blackFur  = "#23252b";
-  const brownPatch = "#a86432";  // bigote/barba
-  const outline   = "#1d1d20";
-
-  // ---------- CUERPO (chiquito, chibi) ----------
-  const bodyW = r * 2.3;
-  const bodyH = r * 3.2;
-  const bodyTopY = jumping ? -r * 3.4 : -r * 3.0;
-
-  ctx.fillStyle = whiteFur;
-  ctx.strokeStyle = outline;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.roundRect(-bodyW / 2, bodyTopY, bodyW, bodyH, r * 0.8);
-  ctx.fill();
-  ctx.stroke();
-
-  // Parche negro en el lomo (lado derecho)
-  ctx.fillStyle = blackFur;
-  ctx.beginPath();
-  ctx.roundRect(bodyW * 0.05, bodyTopY + bodyH * 0.25,
-                bodyW * 0.55, bodyH * 0.55, r * 0.6);
-  ctx.fill();
-
-  // Patas delanteras
-  const legW = r * 0.7;
-  const legH = r * 1.4;
-  const legY = bodyTopY + bodyH - legH + 1;
-  ctx.fillStyle = whiteFur;
-  ctx.beginPath();
-  ctx.roundRect(-legW * 1.05, legY, legW, legH, r * 0.4);
-  ctx.roundRect(legW * 0.05,  legY, legW, legH, r * 0.4);
-  ctx.fill();
-  ctx.stroke();
-
-  // ---------- CABEZA (más grande) ----------
-  const headR = r * 1.7;
-  const headY = bodyTopY - headR * 0.3;
-
-  // cabeza blanca
-  ctx.fillStyle = whiteFur;
-  ctx.beginPath();
-  ctx.arc(0, headY, headR, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  // "cabello" negro en la frente
-  ctx.fillStyle = blackFur;
-  ctx.beginPath();
-  ctx.arc(0, headY - headR * 0.15, headR * 0.95, Math.PI * 1.05, Math.PI * 1.95);
-  ctx.fill();
-
-  // Orejas
-  ctx.fillStyle = whiteFur;
-  ctx.beginPath();
-  ctx.moveTo(-headR * 0.5, headY - headR * 0.4);
-  ctx.lineTo(-headR * 0.95, headY - headR * 1.1);
-  ctx.lineTo(-headR * 0.15, headY - headR * 0.9);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(headR * 0.5, headY - headR * 0.4);
-  ctx.lineTo(headR * 0.95, headY - headR * 1.1);
-  ctx.lineTo(headR * 0.15, headY - headR * 0.9);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // Interior rosado de orejas
-  ctx.fillStyle = "#f2b3c4";
-  ctx.beginPath();
-  ctx.moveTo(-headR * 0.55, headY - headR * 0.5);
-  ctx.lineTo(-headR * 0.85, headY - headR * 0.95);
-  ctx.lineTo(-headR * 0.25, headY - headR * 0.8);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.moveTo(headR * 0.55, headY - headR * 0.5);
-  ctx.lineTo(headR * 0.85, headY - headR * 0.95);
-  ctx.lineTo(headR * 0.25, headY - headR * 0.8);
-  ctx.closePath();
-  ctx.fill();
-
-  // Mancha café tipo bigote / barba
-  ctx.fillStyle = brownPatch;
-  const patchW = headR * 1.2;
-  const patchH = headR * 0.75;
-  const patchY = headY + headR * 0.18;
-  ctx.beginPath();
-  ctx.ellipse(0, patchY, patchW / 2, patchH / 2, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Nariz
-  ctx.fillStyle = "#3a2620";
-  ctx.beginPath();
-  ctx.moveTo(0, headY + headR * 0.02);
-  ctx.lineTo(-headR * 0.18, headY + headR * 0.18);
-  ctx.lineTo(headR * 0.18, headY + headR * 0.18);
-  ctx.closePath();
-  ctx.fill();
-
-  // Boca
-  ctx.strokeStyle = "#2c1a16";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(-headR * 0.18, headY + headR * 0.22);
-  ctx.quadraticCurveTo(0, headY + headR * 0.32, headR * 0.18, headY + headR * 0.22);
-  ctx.stroke();
-
-  // Ojos grandes
-  const eyeOffsetX = headR * 0.75;
-  const eyeY = headY - headR * 0.05;
-  const eyeR = headR * 0.33;
-
-  // blanco
-  ctx.fillStyle = "#fdfdfd";
-  ctx.beginPath();
-  ctx.ellipse(-eyeOffsetX, eyeY, eyeR, eyeR * 0.85, 0, 0, Math.PI * 2);
-  ctx.ellipse( eyeOffsetX, eyeY, eyeR, eyeR * 0.85, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // iris verde
-  ctx.fillStyle = boosted ? "#b9ffd0" : "#7ad89a";
-  const irisR = eyeR * 0.6;
-  ctx.beginPath();
-  ctx.arc(-eyeOffsetX, eyeY, irisR, 0, Math.PI * 2);
-  ctx.arc( eyeOffsetX, eyeY, irisR, 0, Math.PI * 2);
-  ctx.fill();
-
-  // pupilas
-  ctx.fillStyle = "#111111";
-  const pupR = irisR * 0.55;
-  ctx.beginPath();
-  ctx.arc(-eyeOffsetX, eyeY, pupR, 0, Math.PI * 2);
-  ctx.arc( eyeOffsetX, eyeY, pupR, 0, Math.PI * 2);
-  ctx.fill();
-
-  // brillo
-  ctx.fillStyle = "rgba(255,255,255,0.9)";
-  const shineR = pupR * 0.4;
-  ctx.beginPath();
-  ctx.arc(-eyeOffsetX - shineR * 0.2, eyeY - shineR * 0.3, shineR, 0, Math.PI * 2);
-  ctx.arc( eyeOffsetX - shineR * 0.2, eyeY - shineR * 0.3, shineR, 0, Math.PI * 2);
-  ctx.fill();
-
-  // ---------- COLA ----------
-  const tailBaseY = bodyTopY + bodyH * 0.45;
-  const tailLen = r * 3.0;
-  ctx.strokeStyle = blackFur;
-  ctx.lineWidth = r * 0.55;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  const dir = jumping ? -1 : 1;
-  ctx.moveTo(-bodyW * 0.4, tailBaseY);
-  ctx.quadraticCurveTo(
-    -bodyW * 0.4 - tailLen * 0.3,
-    tailBaseY + tailLen * 0.1 * dir,
-    -bodyW * 0.1,
-    tailBaseY + tailLen * 0.5 * dir
-  );
-  ctx.stroke();
-
-  ctx.restore();
-}
+      drawThunder(ctx, player.x, player.y, state);
+    }
 
 
     if (!CanvasRenderingContext2D.prototype.roundRect) {
@@ -1033,49 +911,5 @@ function drawPlayer() {
     resetGame();
     requestAnimationFrame(gameLoop);
   </script>
-  <script>
-const SPRITE_WIDTH = 384;
-const SPRITE_HEIGHT = 512;
-
-const sprite = new Image();
-sprite.src = "thunder-sprites.png"; // ← cámbialo por tu archivo nuevo
-
-let currentFrame = 0;
-
-function drawThunder(ctx, x, y, state) {
-
-    let frameX = 0;
-    let frameY = 0;
-
-    if (state === "idle") {
-        frameX = 0;
-        frameY = 0;
-    }
-
-    if (state === "jump-right") {
-        frameX = SPRITE_WIDTH;
-        frameY = 0;
-    }
-
-    if (state === "jump-left") {
-        frameX = 0;
-        frameY = SPRITE_HEIGHT;
-    }
-
-    if (state === "fall") {
-        frameX = SPRITE_WIDTH;
-        frameY = SPRITE_HEIGHT;
-    }
-
-    ctx.drawImage(
-        sprite,
-        frameX, frameY,
-        SPRITE_WIDTH, SPRITE_HEIGHT,
-        x, y,
-        SPRITE_WIDTH, SPRITE_HEIGHT
-    );
-}
-</script>
-
-</body>
+ </body>
 </html>
