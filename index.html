@@ -95,17 +95,16 @@ const bgImgs = {
   horizon: new Image()
 };
 
-// Por ahora, puedes usar la misma para todas mientras pruebas
-bgImgs.garden.src  = "bg-garden.jpg";  // cuando la tengas
-bgImgs.sky.src     = "bg-sky.jpg";
-bgImgs.solar.src   = "bg-solar.jpg";
-bgImgs.milkyway.src = "bg-milkyway.jpg";
-bgImgs.virgo.src   = "bg-virgo.jpg";
-bgImgs.horizon.src = "bg-horizon.jpg";
-    const canvas = document.getElementById("game");
-    const ctx = canvas.getContext("2d");
-    const hudBottom = document.getElementById("hudBottom");
-    const hudTop = document.getElementById("hudTop");
+// Rutas de las imágenes
+const bgPaths = {
+  garden: "bg-garden.jpg",
+  sky: "bg-sky.jpg",
+  solar: "bg-solar.jpg",
+  milkyway: "bg-milkyway.jpg",
+  virgo: "bg-virgo.jpg",
+  horizon: "bg-horizon.jpg"
+};
+
 // --------- SPRITES DE THUNDER (UN PNG POR ESTADO) ---------
 const SPRITE_DRAW_WIDTH = 36;   // tamaño final dentro del juego
 const SPRITE_DRAW_HEIGHT = 44;
@@ -117,11 +116,52 @@ const thunderImgs = {
   fall: new Image()
 };
 
-// Como todos los PNG están junto a index.html, basta con el nombre
-thunderImgs.idle.src      = "thunder-idle.png";
-thunderImgs.jumpRight.src = "thunder-jump_right.png";
-thunderImgs.jumpLeft.src  = "thunder_jump_left.png";
-thunderImgs.fall.src      = "thunder_fall.png";
+// Rutas de los sprites de Thunder
+const thunderPaths = {
+  idle: "thunder-idle.png",
+  jumpRight: "thunder-jump_right.png",
+  jumpLeft: "thunder_jump_left.png",
+  fall: "thunder_fall.png"
+};
+
+// ** NUEVA FUNCIÓN DE PRECARGA **
+async function preloadAssets() {
+  const allImages = [];
+
+  // Función auxiliar para cargar una sola imagen con una Promise
+  const loadImage = (img, path) => new Promise((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => {
+      console.error(`Error al cargar: ${path}`);
+      // No reject, permite que el juego continúe con un fallback si es posible
+      resolve();
+    };
+    img.src = path;
+  });
+
+  // Precarga de fondos
+  for (const key in bgPaths) {
+    allImages.push(loadImage(bgImgs[key], bgPaths[key]));
+  }
+
+  // Precarga de sprites de Thunder
+  for (const key in thunderPaths) {
+    allImages.push(loadImage(thunderImgs[key], thunderPaths[key]));
+  }
+
+  // Espera a que todas las imágenes se carguen
+  await Promise.all(allImages);
+  console.log("Todos los recursos cargados. Iniciando juego.");
+}
+
+// -------------------------------------------------------------------
+// RESTO DEL CÓDIGO PERMANECE IGUAL (A PARTIR DE canvas / ctx)
+// -------------------------------------------------------------------
+
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const hudBottom = document.getElementById("hudBottom");
+    const hudTop = document.getElementById("hudTop");
 
 function drawThunder(ctx, x, y, state) {
   let img = thunderImgs.idle;
@@ -131,6 +171,7 @@ function drawThunder(ctx, x, y, state) {
   else if (state === "fall")       img = thunderImgs.fall;
 
   // Si aún no cargó la imagen, evitamos dibujar basura
+  // (Aunque con la precarga, esto ya no debería pasar)
   if (!img.complete) return;
 
   ctx.drawImage(
@@ -876,7 +917,7 @@ function drawGround() {
 
       ctx.clearRect(0, 0, VW, VH);
       drawBackground();
-      
+      drawGround();
       drawPlatforms();
       drawHazards();
       drawPowerUps();
@@ -885,8 +926,11 @@ function drawGround() {
       requestAnimationFrame(gameLoop);
     }
 
-    resetGame();
-    requestAnimationFrame(gameLoop);
+    // ** NUEVO INICIO DEL JUEGO **
+    preloadAssets().then(() => {
+        resetGame();
+        requestAnimationFrame(gameLoop);
+    });
   </script>
  </body>
 </html>
