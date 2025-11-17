@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Ascensión de Wormk</title>
+  <title>Thunder Ascension</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
   <style>
     :root { color-scheme: dark; }
@@ -77,7 +77,7 @@
 </head>
 <body>
   <div class="frame">
-    <div class="hud-top" id="hudTop">ASCENSIÓN DE WORMK — Zona: Jardín</div>
+    <div class="hud-top" id="hudTop">THUNDER ASCENSION — Zona: Jardín</div>
     <!-- Mundo lógico fijo 180x320 -->
     <canvas id="game" width="180" height="320"></canvas>
     <div class="hud-bottom" id="hudBottom">Altura: 0 m · Mejor: 0 m</div>
@@ -173,6 +173,7 @@
 
       const zone = getZone(world.heightMeters);
 
+      // Plataformas móviles en zonas altas
       if ((zone.key === "milkyway" || zone.key === "virgo" || zone.key === "horizon") &&
           Math.random() < 0.35) {
         plat.vx = (Math.random() < 0.5 ? -0.4 : 0.4);
@@ -180,6 +181,7 @@
         plat.rangeMax = VW - PLATFORM_WIDTH - 10;
       }
 
+      // Probabilidad de flecha (menos que antes: 0.07)
       if (zone.key !== "garden" && Math.random() < 0.07) {
         powerUps.push({
           x: x + PLATFORM_WIDTH / 2,
@@ -387,7 +389,16 @@
 
       const zone = getZone(world.heightMeters);
 
+      // Temporizador de boost (por si lo quieres usar después)
+      if (world.jumpBoostTimer > 0) {
+        world.jumpBoostTimer -= dt;
+        if (world.jumpBoostTimer <= 0) {
+          world.jumpBoostTimer = 0;
+          world.jumpBoostMultiplier = 1.0;
+        }
+      }
 
+      // Controles invertidos en Horizonte
       if (zone.key === "horizon") {
         if (!world.controlsInverted && Math.random() < 0.003 * dt * 60) {
           world.controlsInverted = true;
@@ -440,6 +451,7 @@
         }
       }
 
+      // Colisión con plataformas (salto)
       if (player.vy > 0) {
         const bottom = player.y + player.r;
         for (const p of platforms) {
@@ -449,13 +461,14 @@
             player.x > p.x - player.r &&
             player.x < p.x + p.w + player.r
           ) {
-            // Usamos el multiplicador ACTUAL para este salto...
-            const jumpVel = currentJumpVel();
             player.y = p.y - player.r;
-            player.vy = jumpVel;
+            player.vy = currentJumpVel();
 
-            // ...y justo después lo consumimos: siguiente salto vuelve a x1
-            world.jumpBoostMultiplier = 1.0;
+            // ✅ GASTA EL BOOST EN ESTE SALTO
+            if (world.jumpBoostMultiplier > 1.0) {
+              world.jumpBoostMultiplier = 1.0;
+              world.jumpBoostTimer = 0;
+            }
           }
         }
       }
@@ -487,6 +500,7 @@
         }
       }
 
+      // Colisión con flechas (power-ups)
       for (const pu of powerUps) {
         if (pu.taken) continue;
         const dx = pu.x - player.x;
@@ -495,17 +509,18 @@
         if (dx * dx + dy * dy < rr * rr) {
           pu.taken = true;
 
-          // Cada flecha aumenta el multiplicador, pero solo hasta x3.5
-          if (world.jumpBoostMultiplier < 1.5) {
-            world.jumpBoostMultiplier = 1.5;
-          } else {
+          // Acumula boost hasta x3.5
+          if (world.jumpBoostTimer > 0 && world.jumpBoostMultiplier > 1.0) {
             world.jumpBoostMultiplier *= 1.5;
+          } else {
+            world.jumpBoostMultiplier = 1.5;
           }
           if (world.jumpBoostMultiplier > 3.5) {
             world.jumpBoostMultiplier = 3.5;
           }
 
-          // Empujón instantáneo hacia arriba usando el nuevo multiplicador
+          world.jumpBoostTimer = 6; // por si quieres usar UI de tiempo
+          // pequeño impulso inmediato al tomar la flecha
           player.vy = currentJumpVel() * 1.1;
         }
       }
@@ -529,7 +544,7 @@
         `Altura: ${heightMeters} m · Mejor: ${bestMeters} m` +
         (!player.alive ? " · Toca o presiona ESPACIO para reiniciar" : "");
 
-      let topText = `ASCENSIÓN DE WORMK — Zona: ${zoneNow.name}`;
+      let topText = `THUNDER ASCENSION — Zona: ${zoneNow.name}`;
       if (world.controlsInverted) topText += " · Controles invertidos";
       if (world.jumpBoostMultiplier > 1.01) {
         topText += ` · Salto x${world.jumpBoostMultiplier.toFixed(1)}`;
@@ -740,17 +755,17 @@
       }
     }
 
-    // --------- FLECHAS POWER-UP (antes orbes) ---------
+    // --------- FLECHAS POWER-UP ---------
     function drawPowerUps() {
       for (const pu of powerUps) {
         ctx.save();
         ctx.translate(pu.x, pu.y);
 
-        const base = pu.r * 3;       // altura aprox. de la flecha
+        const base = pu.r * 3;
         const h = base;
         const w = base * 0.7;
 
-        // Glow verde neón
+        // Glow verde
         const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, h * 0.9);
         glow.addColorStop(0, "rgba(0,255,170,0.9)");
         glow.addColorStop(1, "rgba(0,255,170,0)");
@@ -759,7 +774,7 @@
         ctx.arc(0, 0, h * 0.9, 0, Math.PI * 2);
         ctx.fill();
 
-        // Flecha principal
+        // Flecha
         const gradArrow = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
         gradArrow.addColorStop(0, "#b8fff0");
         gradArrow.addColorStop(0.4, "#66ffcc");
@@ -790,7 +805,7 @@
         ctx.lineWidth = 0.9;
         const lines = 3;
         for (let i = 0; i < lines; i++) {
-          const lx = (-w / 6) + (i * w) / (lines - 1) / 3;
+          const lx = -w * 0.2 + (i * w * 0.2);
           ctx.beginPath();
           ctx.moveTo(lx, h / 2);
           ctx.lineTo(lx, -h / 6);
@@ -802,83 +817,181 @@
       }
     }
 
+    // --------- THUNDER (Jugador) ---------
     function drawPlayer() {
       const { x, y, r } = player;
       const jumping = player.vy < -1.5;
+      const boosted = world.jumpBoostMultiplier > 1.01;
 
       ctx.save();
       ctx.translate(x, y);
 
+      // Inclinación ligera según velocidad horizontal
+      const tilt = player.vx * 0.05;
+      ctx.rotate(tilt);
+
+      // Sombra
       ctx.fillStyle = "rgba(0,0,0,0.35)";
       ctx.beginPath();
-      ctx.ellipse(0, r + 5, r * 1.6, r * 0.8, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, r + 6, r * 1.8, r * 0.9, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      const boosted = world.jumpBoostMultiplier > 1.01;
-      const bodyColor = boosted ? "#fff389" : "#ffdf6b";
-      const outline = "#2b1a0f";
-
-      if (jumping) {
-        ctx.fillStyle = bodyColor;
-        ctx.strokeStyle = outline;
-        ctx.lineWidth = 2;
-
+      // Glow cuando hay boost
+      if (boosted) {
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 5);
+        g.addColorStop(0, "rgba(0,255,170,0.4)");
+        g.addColorStop(1, "rgba(0,255,170,0)");
+        ctx.fillStyle = g;
         ctx.beginPath();
-        ctx.roundRect(-r * 0.7, -r * 2.6, r * 1.4, r * 3.0, r * 0.7);
+        ctx.arc(0, -r * 1.0, r * 5, 0, Math.PI * 2);
         ctx.fill();
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.arc(0, -r * 2.8, r * 0.9, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.fillStyle = "#3a1b1b";
-        ctx.beginPath();
-        ctx.arc(-r * 0.35, -r * 3.0, 1.3, 0, Math.PI * 2);
-        ctx.arc(r * 0.35, -r * 3.0, 1.3, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.arc(0, -r * 2.7, 2, 0, Math.PI, false);
-        ctx.lineWidth = 1.4;
-        ctx.stroke();
-      } else {
-        ctx.fillStyle = bodyColor;
-        ctx.strokeStyle = outline;
-        ctx.lineWidth = 2;
-
-        ctx.beginPath();
-        ctx.roundRect(-r * 1.8, -r * 0.1, r * 3.6, r * 0.9, r * 0.5);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.roundRect(-r * 1.4, -r * 0.9, r * 2.8, r * 0.9, r * 0.5);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.roundRect(-r * 0.7, -r * 2.0, r * 1.4, r * 1.7, r * 0.7);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.arc(0, -r * 2.2, r * 0.9, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.fillStyle = "#3a1b1b";
-        ctx.beginPath();
-        ctx.arc(-r * 0.35, -r * 2.4, 1.3, 0, Math.PI * 2);
-        ctx.arc(r * 0.35, -r * 2.4, 1.3, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.arc(0, -r * 2.1, 2, 0, Math.PI, false);
-        ctx.lineWidth = 1.4;
-        ctx.stroke();
       }
+
+      // Colores principales
+      const whiteFur = "#fdfdfd";
+      const backPatch = "#2b2b30";   // lomo oscuro
+      const facePatch = "#b5793c";   // bigote/barba café
+      const outline = "#222222";
+
+      // Cuerpo (pecho blanco)
+      const bodyW = r * 3;
+      const bodyH = r * 4.5;
+      const bodyTopY = jumping ? -r * 4.5 : -r * 4.0;
+
+      ctx.fillStyle = whiteFur;
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(-bodyW / 2, bodyTopY, bodyW, bodyH, r);
+      ctx.fill();
+      ctx.stroke();
+
+      // Lomo/espalda (parche oscuro al lado derecho)
+      ctx.fillStyle = backPatch;
+      ctx.beginPath();
+      ctx.roundRect(0, bodyTopY + bodyH * 0.25, bodyW * 0.5, bodyH * 0.55, r * 0.6);
+      ctx.fill();
+
+      // Cabeza
+      const headR = r * 1.4;
+      const headY = bodyTopY - headR * 0.3;
+      ctx.fillStyle = whiteFur;
+      ctx.beginPath();
+      ctx.arc(0, headY, headR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Parche "cabello" negro en la frente
+      ctx.fillStyle = backPatch;
+      ctx.beginPath();
+      ctx.arc(0, headY - headR * 0.2, headR * 0.9, Math.PI * 1.05, Math.PI * 1.95);
+      ctx.fill();
+
+      // Orejas triangulares
+      ctx.fillStyle = whiteFur;
+      ctx.beginPath();
+      ctx.moveTo(-headR * 0.5, headY - headR * 0.6);
+      ctx.lineTo(-headR * 0.9, headY - headR * 1.2);
+      ctx.lineTo(-headR * 0.2, headY - headR * 0.9);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(headR * 0.5, headY - headR * 0.6);
+      ctx.lineTo(headR * 0.9, headY - headR * 1.2);
+      ctx.lineTo(headR * 0.2, headY - headR * 0.9);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Mancha café tipo bigote/barba
+      ctx.fillStyle = facePatch;
+      const patchW = headR * 1.1;
+      const patchH = headR * 0.7;
+      const patchY = headY + headR * 0.15;
+      ctx.beginPath();
+      ctx.ellipse(0, patchY, patchW / 2, patchH / 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Nariz
+      ctx.fillStyle = "#3a2620";
+      ctx.beginPath();
+      ctx.moveTo(0, headY + headR * 0.05);
+      ctx.lineTo(-headR * 0.18, headY + headR * 0.18);
+      ctx.lineTo(headR * 0.18, headY + headR * 0.18);
+      ctx.closePath();
+      ctx.fill();
+
+      // Boca
+      ctx.strokeStyle = "#2c1a16";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-headR * 0.18, headY + headR * 0.22);
+      ctx.quadraticCurveTo(0, headY + headR * 0.32, headR * 0.18, headY + headR * 0.22);
+      ctx.stroke();
+
+      // Ojos
+      ctx.fillStyle = "#fdfdfd";
+      const eyeOffsetX = headR * 0.55;
+      const eyeY = headY - headR * 0.05;
+      const eyeR = headR * 0.28;
+      ctx.beginPath();
+      ctx.ellipse(-eyeOffsetX, eyeY, eyeR, eyeR * 0.85, 0, 0, Math.PI * 2);
+      ctx.ellipse(eyeOffsetX, eyeY, eyeR, eyeR * 0.85, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Iris verde
+      ctx.fillStyle = boosted ? "#b4ffcc" : "#6ac08a";
+      const irisR = eyeR * 0.6;
+      ctx.beginPath();
+      ctx.arc(-eyeOffsetX, eyeY, irisR, 0, Math.PI * 2);
+      ctx.arc(eyeOffsetX, eyeY, irisR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Pupilas
+      ctx.fillStyle = "#111111";
+      const pupR = irisR * 0.55;
+      ctx.beginPath();
+      ctx.arc(-eyeOffsetX, eyeY, pupR, 0, Math.PI * 2);
+      ctx.arc(eyeOffsetX, eyeY, pupR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Brillo en ojo
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      const shineR = pupR * 0.4;
+      ctx.beginPath();
+      ctx.arc(-eyeOffsetX - shineR * 0.2, eyeY - shineR * 0.3, shineR, 0, Math.PI * 2);
+      ctx.arc(eyeOffsetX - shineR * 0.2, eyeY - shineR * 0.3, shineR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Patas delanteras
+      const legW = r * 0.9;
+      const legH = r * 1.7;
+      const legY = bodyTopY + bodyH - legH;
+      ctx.fillStyle = whiteFur;
+      ctx.beginPath();
+      ctx.roundRect(-legW * 1.1, legY, legW, legH, r * 0.4);
+      ctx.roundRect(legW * 0.1, legY, legW, legH, r * 0.4);
+      ctx.fill();
+      ctx.stroke();
+
+      // Cola (con rayas oscuras)
+      const tailBaseY = bodyTopY + bodyH * 0.4;
+      const tailLen = r * 3.2;
+      ctx.strokeStyle = backPatch;
+      ctx.lineWidth = r * 0.55;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      const tailDir = jumping ? -1 : 1; // cuando salta la cola sube
+      ctx.moveTo(bodyW * 0.45, tailBaseY);
+      ctx.quadraticCurveTo(
+        bodyW * 0.45 + tailLen * 0.3,
+        tailBaseY + tailLen * 0.1 * tailDir,
+        bodyW * 0.45,
+        tailBaseY + tailLen * 0.5 * tailDir
+      );
+      ctx.stroke();
 
       ctx.restore();
     }
