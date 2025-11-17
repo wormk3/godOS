@@ -609,19 +609,10 @@ function drawBackground() {
   const h = world.heightMeters;
   const zone = getZone(h);
 
+  // Esperamos que la imagen esté lista; si no, usamos el gradiente
   const img = bgImgs[zone.key];
-
-  // Solo usamos la foto si:
-  // - existe
-  // - terminó de cargar
-  // - tiene tamaño válido
-  const hasValidImage =
-    img &&
-    img.complete &&
-    img.naturalWidth > 0 &&
-    img.naturalHeight > 0;
-
-  if (hasValidImage) {
+  if (img && img.complete && img.naturalWidth) {
+    // Estilo "background-size: cover"
     const iw = img.naturalWidth;
     const ih = img.naturalHeight;
     const canvasRatio = VW / VH;
@@ -629,24 +620,18 @@ function drawBackground() {
 
     let drawW, drawH;
     if (imgRatio > canvasRatio) {
-      // imagen más ancha → ajustamos alto
       drawH = VH;
-      drawW = VH * imgRatio;
+      drawW = (VH * imgRatio);
     } else {
-      // imagen más alta → ajustamos ancho
       drawW = VW;
-      drawH = VW / imgRatio;
+      drawH = (VW / imgRatio);
     }
 
     const dx = (VW - drawW) / 2;
     const dy = (VH - drawH) / 2;
-
-    // opcional: menos borroso
-    ctx.imageSmoothingEnabled = false;
-
     ctx.drawImage(img, dx, dy, drawW, drawH);
   } else {
-    // Fallback: degradado procedural
+    // Fallback: usa el gradiente para evitar el tirón
     const grad = ctx.createLinearGradient(0, 0, 0, VH);
     grad.addColorStop(0, zone.top);
     grad.addColorStop(0.5, zone.mid);
@@ -655,7 +640,7 @@ function drawBackground() {
     ctx.fillRect(0, 0, VW, VH);
   }
 
-  // Efectos extra encima (elipses suaves)
+  // Elipses y estrellas como antes...
   ctx.fillStyle = "rgba(255,255,255,0.03)";
   ctx.beginPath();
   ctx.ellipse(VW * 0.5, VH * 0.22, VW * 0.7, VH * 0.3, 0, 0, Math.PI * 2);
@@ -664,7 +649,6 @@ function drawBackground() {
   ctx.ellipse(VW * 0.5, VH * 0.75, VW * 0.9, VH * 0.55, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Estrellitas
   const starsCount = zone.stars;
   ctx.fillStyle = "rgba(255,255,255,0.6)";
   for (let i = 0; i < starsCount; i++) {
