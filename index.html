@@ -90,46 +90,39 @@
     const ctx = canvas.getContext("2d");
     const hudBottom = document.getElementById("hudBottom");
     const hudTop = document.getElementById("hudTop");
-    // --------- SPRITE DE THUNDER ---------
-    const SPRITE_WIDTH = 384;   // tamaño real de cada frame en el PNG
-    const SPRITE_HEIGHT = 512;
+// --------- SPRITES DE THUNDER (UN PNG POR ESTADO) ---------
+const SPRITE_DRAW_WIDTH = 36;   // tamaño final dentro del juego
+const SPRITE_DRAW_HEIGHT = 44;
 
-    // tamaño al que lo dibujamos dentro del canvas (escalado)
-    const SPRITE_DRAW_WIDTH = 32;
-    const SPRITE_DRAW_HEIGHT = 42;
+const thunderImgs = {
+  idle: new Image(),
+  jumpRight: new Image(),
+  jumpLeft: new Image(),
+  fall: new Image()
+};
 
-    const thunderSprite = new Image();
-    // como index.html y thunder-sprites.png están en la raíz del repo:
-    thunderSprite.src = "thunder-sprites.png";
-    // si quieres usar GitHub Pages directamente:
-    // thunderSprite.src = "https://wormk3.github.io/godOS/thunder-sprites.png";
-
+// Como todos los PNG están junto a index.html, basta con el nombre
+thunderImgs.idle.src      = "thunder-idle.png";
+thunderImgs.jumpRight.src = "thunder-jump_right.png";
+thunderImgs.jumpLeft.src  = "thunder_jump_left.png";
+thunderImgs.fall.src      = "thunder_fall.png";
 
 function drawThunder(ctx, x, y, state) {
-  let frameX = 0;
-  let frameY = 0;
+  let img = thunderImgs.idle;
 
-  if (state === "idle") {
-    frameX = 0;
-    frameY = 0;
-  } else if (state === "jump-right") {
-    frameX = SPRITE_WIDTH;
-    frameY = 0;
-  } else if (state === "jump-left") {
-    frameX = 0;
-    frameY = SPRITE_HEIGHT;
-  } else if (state === "fall") {
-    frameX = SPRITE_WIDTH;
-    frameY = SPRITE_HEIGHT;
-  }
+  if (state === "jump-right")      img = thunderImgs.jumpRight;
+  else if (state === "jump-left")  img = thunderImgs.jumpLeft;
+  else if (state === "fall")       img = thunderImgs.fall;
+
+  // Si aún no cargó la imagen, evitamos dibujar basura
+  if (!img.complete) return;
 
   ctx.drawImage(
-    thunderSprite,
-    frameX, frameY,
-    SPRITE_WIDTH, SPRITE_HEIGHT,          // recorta SOLO el frame
-    x - SPRITE_DRAW_WIDTH / 2,            // lo centra
+    img,
+    x - SPRITE_DRAW_WIDTH / 2,
     y - SPRITE_DRAW_HEIGHT / 2,
-    SPRITE_DRAW_WIDTH, SPRITE_DRAW_HEIGHT // lo dibuja pequeño
+    SPRITE_DRAW_WIDTH,
+    SPRITE_DRAW_HEIGHT
   );
 }
 
