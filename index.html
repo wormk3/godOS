@@ -642,77 +642,57 @@
       }
     }
 
-    function drawGroundAndHouse() {
-      const h = world.heightMeters;
-      let alpha = 1 - h / 160;
-      if (alpha <= 0) return;
-      if (alpha > 1) alpha = 1;
+function drawGround() {
+  const h = world.heightMeters;
+  let alpha = 1 - h / 160;
+  if (alpha <= 0) return;
+  if (alpha > 1) alpha = 1;
 
-      ctx.save();
-      ctx.globalAlpha = alpha;
+  ctx.save();
+  ctx.globalAlpha = alpha;
 
-      const groundH = 40;
-      ctx.fillStyle = "#5a3b1f";
-      ctx.fillRect(0, VH - groundH, VW, groundH);
+  // Suelo verde (césped)
+  const groundH = 40;
+  const groundTop = VH - groundH;
 
-      const w = 45;
-      const hHouse = 32;
-      const x = 10;
-      const y = VH - groundH - hHouse + 2;
+  const gradGrass = ctx.createLinearGradient(0, groundTop, 0, VH);
+  gradGrass.addColorStop(0, "#2c7a3f");
+  gradGrass.addColorStop(1, "#154d24");
+  ctx.fillStyle = gradGrass;
+  ctx.fillRect(0, groundTop, VW, groundH);
 
-      ctx.fillStyle = "#fef3dd";
-      ctx.fillRect(x, y, w, hHouse);
+  // Montículo suave
+  ctx.fillStyle = "rgba(0,0,0,0.2)";
+  ctx.beginPath();
+  ctx.ellipse(VW * 0.5, VH, VW * 0.7, groundH * 0.9, 0, Math.PI, 0, true);
+  ctx.fill();
 
-      ctx.fillStyle = "#3b1020";
-      ctx.beginPath();
-      ctx.moveTo(x - 3, y);
-      ctx.lineTo(x + w / 2, y - 16);
-      ctx.lineTo(x + w + 3, y);
-      ctx.closePath();
-      ctx.fill();
+  // Pasto vertical
+  ctx.strokeStyle = "#3fe27b";
+  ctx.lineWidth = 1;
+  for (let x = 0; x < VW; x += 5) {
+    const len = 4 + Math.random() * 3;
+    ctx.beginPath();
+    ctx.moveTo(x, VH);
+    ctx.lineTo(x + (Math.random() - 0.5) * 2, VH - len);
+    ctx.stroke();
+  }
 
-      ctx.fillStyle = "#603028";
-      ctx.fillRect(x + w * 0.42, y + hHouse - 14, 8, 14);
+  // Pequeñas flores
+  const flowerColors = ["#ffb3d9", "#ffe58a", "#b0f5ff"];
+  for (let i = 0; i < 8; i++) {
+    const fx = 10 + Math.random() * (VW - 20);
+    const fy = groundTop + 5 + Math.random() * (groundH - 10);
+    const c = flowerColors[i % flowerColors.length];
+    ctx.fillStyle = c;
+    ctx.beginPath();
+    ctx.arc(fx, fy, 1.3, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
-      ctx.strokeStyle = "#3b1020";
-      ctx.lineWidth = 1;
-      const winSize = 8;
-      const winY = y + 7;
-      const win1X = x + 6;
-      const win2X = x + w - winSize - 6;
-      [win1X, win2X].forEach((wx) => {
-        ctx.strokeRect(wx, winY, winSize, winSize);
-        ctx.beginPath();
-        ctx.moveTo(wx, winY);
-        ctx.lineTo(wx + winSize, winY + winSize);
-        ctx.moveTo(wx + winSize, winY);
-        ctx.lineTo(wx, winY + winSize);
-        ctx.stroke();
-      });
+  ctx.restore();
+}
 
-      const tx = VW * 0.45;
-      const ty = VH - groundH + 4;
-      const rx = 18;
-      const ry = 6;
-
-      ctx.strokeStyle = "#d62b3e";
-      ctx.lineWidth = 2;
-      const legs = [-rx * 0.6, -rx * 0.2, rx * 0.2, rx * 0.6];
-      legs.forEach((dx) => {
-        ctx.beginPath();
-        ctx.moveTo(tx + dx, ty);
-        ctx.lineTo(tx + dx, ty + 10);
-        ctx.stroke();
-      });
-
-      ctx.beginPath();
-      ctx.ellipse(tx, ty - 2, rx, ry, 0, 0, Math.PI * 2);
-      ctx.strokeStyle = "#ff3c4b";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      ctx.restore();
-    }
 
     function drawPlatforms() {
       for (const p of platforms) {
@@ -818,183 +798,205 @@
     }
 
     // --------- THUNDER (Jugador) ---------
-    function drawPlayer() {
-      const { x, y, r } = player;
-      const jumping = player.vy < -1.5;
-      const boosted = world.jumpBoostMultiplier > 1.01;
+function drawPlayer() {
+  const { x, y, r } = player;
+  const jumping = player.vy < -1.5;
+  const boosted = world.jumpBoostMultiplier > 1.01;
 
-      ctx.save();
-      ctx.translate(x, y);
+  ctx.save();
+  ctx.translate(x, y);
 
-      // Inclinación ligera según velocidad horizontal
-      const tilt = player.vx * 0.05;
-      ctx.rotate(tilt);
+  // ligera inclinación según movimiento
+  const tilt = player.vx * 0.04;
+  ctx.rotate(tilt);
 
-      // Sombra
-      ctx.fillStyle = "rgba(0,0,0,0.35)";
-      ctx.beginPath();
-      ctx.ellipse(0, r + 6, r * 1.8, r * 0.9, 0, 0, Math.PI * 2);
-      ctx.fill();
+  // Sombra
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.beginPath();
+  ctx.ellipse(0, r + 6, r * 1.8, r * 0.9, 0, 0, Math.PI * 2);
+  ctx.fill();
 
-      // Glow cuando hay boost
-      if (boosted) {
-        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 5);
-        g.addColorStop(0, "rgba(0,255,170,0.4)");
-        g.addColorStop(1, "rgba(0,255,170,0)");
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(0, -r * 1.0, r * 5, 0, Math.PI * 2);
-        ctx.fill();
-      }
+  // Glow si hay boost
+  if (boosted) {
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 4.5);
+    g.addColorStop(0, "rgba(0,255,170,0.4)");
+    g.addColorStop(1, "rgba(0,255,170,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, -r * 1.0, r * 4.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
-      // Colores principales
-      const whiteFur = "#fdfdfd";
-      const backPatch = "#2b2b30";   // lomo oscuro
-      const facePatch = "#b5793c";   // bigote/barba café
-      const outline = "#222222";
+  // Colores Thunder
+  const whiteFur  = "#fcfcfc";
+  const blackFur  = "#23252b";
+  const brownPatch = "#a86432";  // bigote/barba
+  const outline   = "#1d1d20";
 
-      // Cuerpo (pecho blanco)
-      const bodyW = r * 3;
-      const bodyH = r * 4.5;
-      const bodyTopY = jumping ? -r * 4.5 : -r * 4.0;
+  // ---------- CUERPO (chiquito, chibi) ----------
+  const bodyW = r * 2.3;
+  const bodyH = r * 3.2;
+  const bodyTopY = jumping ? -r * 3.4 : -r * 3.0;
 
-      ctx.fillStyle = whiteFur;
-      ctx.strokeStyle = outline;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.roundRect(-bodyW / 2, bodyTopY, bodyW, bodyH, r);
-      ctx.fill();
-      ctx.stroke();
+  ctx.fillStyle = whiteFur;
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(-bodyW / 2, bodyTopY, bodyW, bodyH, r * 0.8);
+  ctx.fill();
+  ctx.stroke();
 
-      // Lomo/espalda (parche oscuro al lado derecho)
-      ctx.fillStyle = backPatch;
-      ctx.beginPath();
-      ctx.roundRect(0, bodyTopY + bodyH * 0.25, bodyW * 0.5, bodyH * 0.55, r * 0.6);
-      ctx.fill();
+  // Parche negro en el lomo (lado derecho)
+  ctx.fillStyle = blackFur;
+  ctx.beginPath();
+  ctx.roundRect(bodyW * 0.05, bodyTopY + bodyH * 0.25,
+                bodyW * 0.55, bodyH * 0.55, r * 0.6);
+  ctx.fill();
 
-      // Cabeza
-      const headR = r * 1.4;
-      const headY = bodyTopY - headR * 0.3;
-      ctx.fillStyle = whiteFur;
-      ctx.beginPath();
-      ctx.arc(0, headY, headR, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+  // Patas delanteras
+  const legW = r * 0.7;
+  const legH = r * 1.4;
+  const legY = bodyTopY + bodyH - legH + 1;
+  ctx.fillStyle = whiteFur;
+  ctx.beginPath();
+  ctx.roundRect(-legW * 1.05, legY, legW, legH, r * 0.4);
+  ctx.roundRect(legW * 0.05,  legY, legW, legH, r * 0.4);
+  ctx.fill();
+  ctx.stroke();
 
-      // Parche "cabello" negro en la frente
-      ctx.fillStyle = backPatch;
-      ctx.beginPath();
-      ctx.arc(0, headY - headR * 0.2, headR * 0.9, Math.PI * 1.05, Math.PI * 1.95);
-      ctx.fill();
+  // ---------- CABEZA (más grande) ----------
+  const headR = r * 1.7;
+  const headY = bodyTopY - headR * 0.3;
 
-      // Orejas triangulares
-      ctx.fillStyle = whiteFur;
-      ctx.beginPath();
-      ctx.moveTo(-headR * 0.5, headY - headR * 0.6);
-      ctx.lineTo(-headR * 0.9, headY - headR * 1.2);
-      ctx.lineTo(-headR * 0.2, headY - headR * 0.9);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
+  // cabeza blanca
+  ctx.fillStyle = whiteFur;
+  ctx.beginPath();
+  ctx.arc(0, headY, headR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
 
-      ctx.beginPath();
-      ctx.moveTo(headR * 0.5, headY - headR * 0.6);
-      ctx.lineTo(headR * 0.9, headY - headR * 1.2);
-      ctx.lineTo(headR * 0.2, headY - headR * 0.9);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
+  // "cabello" negro en la frente
+  ctx.fillStyle = blackFur;
+  ctx.beginPath();
+  ctx.arc(0, headY - headR * 0.15, headR * 0.95, Math.PI * 1.05, Math.PI * 1.95);
+  ctx.fill();
 
-      // Mancha café tipo bigote/barba
-      ctx.fillStyle = facePatch;
-      const patchW = headR * 1.1;
-      const patchH = headR * 0.7;
-      const patchY = headY + headR * 0.15;
-      ctx.beginPath();
-      ctx.ellipse(0, patchY, patchW / 2, patchH / 2, 0, 0, Math.PI * 2);
-      ctx.fill();
+  // Orejas
+  ctx.fillStyle = whiteFur;
+  ctx.beginPath();
+  ctx.moveTo(-headR * 0.5, headY - headR * 0.4);
+  ctx.lineTo(-headR * 0.95, headY - headR * 1.1);
+  ctx.lineTo(-headR * 0.15, headY - headR * 0.9);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
 
-      // Nariz
-      ctx.fillStyle = "#3a2620";
-      ctx.beginPath();
-      ctx.moveTo(0, headY + headR * 0.05);
-      ctx.lineTo(-headR * 0.18, headY + headR * 0.18);
-      ctx.lineTo(headR * 0.18, headY + headR * 0.18);
-      ctx.closePath();
-      ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(headR * 0.5, headY - headR * 0.4);
+  ctx.lineTo(headR * 0.95, headY - headR * 1.1);
+  ctx.lineTo(headR * 0.15, headY - headR * 0.9);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
 
-      // Boca
-      ctx.strokeStyle = "#2c1a16";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(-headR * 0.18, headY + headR * 0.22);
-      ctx.quadraticCurveTo(0, headY + headR * 0.32, headR * 0.18, headY + headR * 0.22);
-      ctx.stroke();
+  // Interior rosado de orejas
+  ctx.fillStyle = "#f2b3c4";
+  ctx.beginPath();
+  ctx.moveTo(-headR * 0.55, headY - headR * 0.5);
+  ctx.lineTo(-headR * 0.85, headY - headR * 0.95);
+  ctx.lineTo(-headR * 0.25, headY - headR * 0.8);
+  ctx.closePath();
+  ctx.fill();
 
-      // Ojos
-      ctx.fillStyle = "#fdfdfd";
-      const eyeOffsetX = headR * 0.55;
-      const eyeY = headY - headR * 0.05;
-      const eyeR = headR * 0.28;
-      ctx.beginPath();
-      ctx.ellipse(-eyeOffsetX, eyeY, eyeR, eyeR * 0.85, 0, 0, Math.PI * 2);
-      ctx.ellipse(eyeOffsetX, eyeY, eyeR, eyeR * 0.85, 0, 0, Math.PI * 2);
-      ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(headR * 0.55, headY - headR * 0.5);
+  ctx.lineTo(headR * 0.85, headY - headR * 0.95);
+  ctx.lineTo(headR * 0.25, headY - headR * 0.8);
+  ctx.closePath();
+  ctx.fill();
 
-      // Iris verde
-      ctx.fillStyle = boosted ? "#b4ffcc" : "#6ac08a";
-      const irisR = eyeR * 0.6;
-      ctx.beginPath();
-      ctx.arc(-eyeOffsetX, eyeY, irisR, 0, Math.PI * 2);
-      ctx.arc(eyeOffsetX, eyeY, irisR, 0, Math.PI * 2);
-      ctx.fill();
+  // Mancha café tipo bigote / barba
+  ctx.fillStyle = brownPatch;
+  const patchW = headR * 1.2;
+  const patchH = headR * 0.75;
+  const patchY = headY + headR * 0.18;
+  ctx.beginPath();
+  ctx.ellipse(0, patchY, patchW / 2, patchH / 2, 0, 0, Math.PI * 2);
+  ctx.fill();
 
-      // Pupilas
-      ctx.fillStyle = "#111111";
-      const pupR = irisR * 0.55;
-      ctx.beginPath();
-      ctx.arc(-eyeOffsetX, eyeY, pupR, 0, Math.PI * 2);
-      ctx.arc(eyeOffsetX, eyeY, pupR, 0, Math.PI * 2);
-      ctx.fill();
+  // Nariz
+  ctx.fillStyle = "#3a2620";
+  ctx.beginPath();
+  ctx.moveTo(0, headY + headR * 0.02);
+  ctx.lineTo(-headR * 0.18, headY + headR * 0.18);
+  ctx.lineTo(headR * 0.18, headY + headR * 0.18);
+  ctx.closePath();
+  ctx.fill();
 
-      // Brillo en ojo
-      ctx.fillStyle = "rgba(255,255,255,0.9)";
-      const shineR = pupR * 0.4;
-      ctx.beginPath();
-      ctx.arc(-eyeOffsetX - shineR * 0.2, eyeY - shineR * 0.3, shineR, 0, Math.PI * 2);
-      ctx.arc(eyeOffsetX - shineR * 0.2, eyeY - shineR * 0.3, shineR, 0, Math.PI * 2);
-      ctx.fill();
+  // Boca
+  ctx.strokeStyle = "#2c1a16";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-headR * 0.18, headY + headR * 0.22);
+  ctx.quadraticCurveTo(0, headY + headR * 0.32, headR * 0.18, headY + headR * 0.22);
+  ctx.stroke();
 
-      // Patas delanteras
-      const legW = r * 0.9;
-      const legH = r * 1.7;
-      const legY = bodyTopY + bodyH - legH;
-      ctx.fillStyle = whiteFur;
-      ctx.beginPath();
-      ctx.roundRect(-legW * 1.1, legY, legW, legH, r * 0.4);
-      ctx.roundRect(legW * 0.1, legY, legW, legH, r * 0.4);
-      ctx.fill();
-      ctx.stroke();
+  // Ojos grandes
+  const eyeOffsetX = headR * 0.75;
+  const eyeY = headY - headR * 0.05;
+  const eyeR = headR * 0.33;
 
-      // Cola (con rayas oscuras)
-      const tailBaseY = bodyTopY + bodyH * 0.4;
-      const tailLen = r * 3.2;
-      ctx.strokeStyle = backPatch;
-      ctx.lineWidth = r * 0.55;
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      const tailDir = jumping ? -1 : 1; // cuando salta la cola sube
-      ctx.moveTo(bodyW * 0.45, tailBaseY);
-      ctx.quadraticCurveTo(
-        bodyW * 0.45 + tailLen * 0.3,
-        tailBaseY + tailLen * 0.1 * tailDir,
-        bodyW * 0.45,
-        tailBaseY + tailLen * 0.5 * tailDir
-      );
-      ctx.stroke();
+  // blanco
+  ctx.fillStyle = "#fdfdfd";
+  ctx.beginPath();
+  ctx.ellipse(-eyeOffsetX, eyeY, eyeR, eyeR * 0.85, 0, 0, Math.PI * 2);
+  ctx.ellipse( eyeOffsetX, eyeY, eyeR, eyeR * 0.85, 0, 0, Math.PI * 2);
+  ctx.fill();
 
-      ctx.restore();
-    }
+  // iris verde
+  ctx.fillStyle = boosted ? "#b9ffd0" : "#7ad89a";
+  const irisR = eyeR * 0.6;
+  ctx.beginPath();
+  ctx.arc(-eyeOffsetX, eyeY, irisR, 0, Math.PI * 2);
+  ctx.arc( eyeOffsetX, eyeY, irisR, 0, Math.PI * 2);
+  ctx.fill();
+
+  // pupilas
+  ctx.fillStyle = "#111111";
+  const pupR = irisR * 0.55;
+  ctx.beginPath();
+  ctx.arc(-eyeOffsetX, eyeY, pupR, 0, Math.PI * 2);
+  ctx.arc( eyeOffsetX, eyeY, pupR, 0, Math.PI * 2);
+  ctx.fill();
+
+  // brillo
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
+  const shineR = pupR * 0.4;
+  ctx.beginPath();
+  ctx.arc(-eyeOffsetX - shineR * 0.2, eyeY - shineR * 0.3, shineR, 0, Math.PI * 2);
+  ctx.arc( eyeOffsetX - shineR * 0.2, eyeY - shineR * 0.3, shineR, 0, Math.PI * 2);
+  ctx.fill();
+
+  // ---------- COLA ----------
+  const tailBaseY = bodyTopY + bodyH * 0.45;
+  const tailLen = r * 3.0;
+  ctx.strokeStyle = blackFur;
+  ctx.lineWidth = r * 0.55;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  const dir = jumping ? -1 : 1;
+  ctx.moveTo(-bodyW * 0.4, tailBaseY);
+  ctx.quadraticCurveTo(
+    -bodyW * 0.4 - tailLen * 0.3,
+    tailBaseY + tailLen * 0.1 * dir,
+    -bodyW * 0.1,
+    tailBaseY + tailLen * 0.5 * dir
+  );
+  ctx.stroke();
+
+  ctx.restore();
+}
+
 
     if (!CanvasRenderingContext2D.prototype.roundRect) {
       CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
@@ -1018,7 +1020,7 @@
 
       ctx.clearRect(0, 0, VW, VH);
       drawBackground();
-      drawGroundAndHouse();
+      drawGround();
       drawPlatforms();
       drawHazards();
       drawPowerUps();
