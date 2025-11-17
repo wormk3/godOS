@@ -104,33 +104,40 @@
     // si quieres usar GitHub Pages directamente:
     // thunderSprite.src = "https://wormk3.github.io/godOS/thunder-sprites.png";
 
-    function drawThunder(ctx, x, y, state) {
-      let frameX = 0;
-      let frameY = 0;
+const SPRITE_WIDTH = 384;   // tamaño de cada frame en el PNG (ancho)
+const SPRITE_HEIGHT = 512;  // alto
 
-      if (state === "idle") {
-        frameX = 0;
-        frameY = 0;
-      } else if (state === "jump-right") {
-        frameX = SPRITE_WIDTH;
-        frameY = 0;
-      } else if (state === "jump-left") {
-        frameX = 0;
-        frameY = SPRITE_HEIGHT;
-      } else if (state === "fall") {
-        frameX = SPRITE_WIDTH;
-        frameY = SPRITE_HEIGHT;
-      }
+// tamaño al que lo quieres dibujar en el juego
+const SPRITE_DRAW_WIDTH = 32;
+const SPRITE_DRAW_HEIGHT = 42;
 
-      ctx.drawImage(
-        thunderSprite,
-        frameX, frameY,
-        SPRITE_WIDTH, SPRITE_HEIGHT,
-        x - SPRITE_DRAW_WIDTH / 2,
-        y - SPRITE_DRAW_HEIGHT / 2,
-        SPRITE_DRAW_WIDTH, SPRITE_DRAW_HEIGHT
-      );
-    }
+function drawThunder(ctx, x, y, state) {
+  let frameX = 0;
+  let frameY = 0;
+
+  if (state === "idle") {
+    frameX = 0;
+    frameY = 0;
+  } else if (state === "jump-right") {
+    frameX = SPRITE_WIDTH;
+    frameY = 0;
+  } else if (state === "jump-left") {
+    frameX = 0;
+    frameY = SPRITE_HEIGHT;
+  } else if (state === "fall") {
+    frameX = SPRITE_WIDTH;
+    frameY = SPRITE_HEIGHT;
+  }
+
+  ctx.drawImage(
+    thunderSprite,
+    frameX, frameY,
+    SPRITE_WIDTH, SPRITE_HEIGHT,          // recorta SOLO el frame
+    x - SPRITE_DRAW_WIDTH / 2,            // lo centra
+    y - SPRITE_DRAW_HEIGHT / 2,
+    SPRITE_DRAW_WIDTH, SPRITE_DRAW_HEIGHT // lo dibuja pequeño
+  );
+}
 
     const VW = 180;
     const VH = 320;
