@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Sprites con IA</title>
+    <style>
+        /* Estilos CSS (Sección 2) */
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f7f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+        }
+        h1 {
+            color: #007bff;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="file"], textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box; /* Incluye padding y borde en el ancho total */
+        }
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        #resultado {
+            margin-top: 30px;
+            padding: 20px;
+            border: 2px dashed #007bff;
+            border-radius: 8px;
+            text-align: center;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        #resultado img {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+        }
+        .placeholder {
+            color: #999;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✨ Generador de Sprites con IA</h1>
+        <form id="spriteForm">
+            <label for="inputImage">Cargar Imagen Base:</label>
+            <input type="file" id="inputImage" accept="image/*" required>
+
+            <label for="inputPrompt">Prompt de Generación (Ej: "Estilo pixel art, acción de correr, 8 frames"):</label>
+            <textarea id="inputPrompt" required placeholder="Describe el estilo, la acción y los detalles del sprite que deseas generar..."></textarea>
+
+            <button type="submit" id="generarBtn">Generar Sprite</button>
+        </form>
+
+        <div id="resultado">
+            <p class="placeholder">Tu sprite generado aparecerá aquí.</p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('spriteForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Evita que el formulario se envíe de forma tradicional
+
+            const imageFile = document.getElementById('inputImage').files[0];
+            const prompt = document.getElementById('inputPrompt').value;
+            const resultadoDiv = document.getElementById('resultado');
+            const generarBtn = document.getElementById('generarBtn');
+
+            if (!imageFile || !prompt.trim()) {
+                alert("Por favor, sube una imagen y escribe un prompt.");
+                return;
+            }
+
+            resultadoDiv.innerHTML = '<p>Generando... Por favor, espera.</p>';
+            generarBtn.disabled = true;
+            generarBtn.textContent = 'Generando...';
+
+            // --- Lógica de la API o IA (Aquí es donde ocurre la magia) ---
+            
+            // 1. Aquí se enviaría la 'imageFile' y el 'prompt' a un servidor.
+            //    Ese servidor se encargaría de:
+            //    a) Autenticarse con el servicio de IA (como una API de Stable Diffusion).
+            //    b) Usar la imagen como "img2img" y el prompt como instrucción.
+            //    c) Recibir el sprite generado como resultado (una URL o datos base64).
+            
+            console.log("Datos enviados al backend/API de IA:");
+            console.log("Archivo de Imagen:", imageFile.name);
+            console.log("Prompt:", prompt);
+
+            // SIMULACIÓN DE RESPUESTA DE LA IA
+            // Esto simula la espera y la recepción de una imagen
+            setTimeout(() => {
+                generarBtn.disabled = false;
+                generarBtn.textContent = 'Generar Sprite';
+
+                // Usaremos una imagen de ejemplo o una de un placeholder temporal.
+                // En un sistema real, esta sería la imagen del sprite generada por la IA.
+                const generatedSpriteUrl = 'https://via.placeholder.com/400x100?text=Sprite+Generado+por+IA';
+                
+                resultadoDiv.innerHTML = `
+                    <h3>✅ Sprite Generado</h3>
+                    <img src="${generatedSpriteUrl}" alt="Sprite Generado por IA">
+                    <p style="margin-top: 10px;">(En un entorno real, esta sería la imagen de tu sprite.)</p>
+                `;
+            }, 3000); // Espera 3 segundos para simular el proceso de IA
+        });
+    </script>
+</body>
+</html>
