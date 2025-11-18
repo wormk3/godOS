@@ -37,20 +37,35 @@
       display: block;
     }
 
-    .hud-top {
-      position: absolute;
-      top: 4px;
-      left: 0;
-      width: 100%;
-      text-align: center;
-      font-size: 12px;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      text-shadow: 0 0 4px #000;
-      pointer-events: none;
-      padding: 0 6px;
-    }
+   .hud-top {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+  padding: 4px 10px;
+  text-shadow: 0 0 4px #000;
+  box-sizing: border-box;
+}
+.hud-top {
+  background: linear-gradient(
+    to bottom,
+    rgba(0,0,0,0.35),
+    rgba(0,0,0,0)
+  );
+}
+.hud-score {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-align: left;
+}
 
+.hud-zone {
+  font-size: 11px;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
     .hud-bottom {
       position: absolute;
       bottom: 4px;
@@ -77,9 +92,12 @@
 </head>
 <body>
   <div class="frame">
-    <div class="hud-top" id="hudTop">THUNDER ASCENSION — Zona: Jardín</div>
+    <div class="hud-top">
+  <div id="hudScore" class="hud-score">0 m</div>
+  <div id="hudZone" class="hud-zone">THUNDER ASCENSION — Zona: Jardín</div>
+</div>
     <!-- Mundo lógico fijo 180x320 -->
-    <canvas id="game" width="180" height="320"></canvas>
+   <canvas id="game"></canvas>
     <div class="hud-bottom" id="hudBottom">Altura: 0 m · Mejor: 0 m</div>
     <div class="hint">PC: Flechas ← → · Móvil: toca izquierda / derecha</div>
   </div>
@@ -106,8 +124,8 @@ const bgPaths = {
 };
 
 // --------- SPRITES DE THUNDER (UN PNG POR ESTADO) ---------
-const SPRITE_DRAW_WIDTH = 36;   // tamaño final dentro del juego
-const SPRITE_DRAW_HEIGHT = 44;
+const SPRITE_DRAW_WIDTH = 26;   // tamaño final dentro del juego
+const SPRITE_DRAW_HEIGHT = 36;
 
 const thunderImgs = {
   idle: new Image(),
@@ -161,8 +179,21 @@ async function preloadAssets() {
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
     const hudBottom = document.getElementById("hudBottom");
-    const hudTop = document.getElementById("hudTop");
+const hudScore  = document.getElementById("hudScore");
+const hudZone   = document.getElementById("hudZone");
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
+// Resolución lógica (lo que usa el juego)
+const VW = 180;
+const VH = 320;
+
+// ⬆️ Doble resolución interna para que se vea nitido (360x640)
+canvas.width  = VW * 2;
+canvas.height = VH * 2;
+
+// Escalamos todo el dibujo x2
+ctx.scale(2, 2);
 function drawThunder(ctx, x, y, state) {
   let img = thunderImgs.idle;
 
