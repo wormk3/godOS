@@ -120,7 +120,18 @@ const bgPaths = {
   virgo: "bg-virgo.JPG",
   horizon: "bg-horizon.JPG"
 };
+// --------- ORBE POWER-UP (SPRITE SHEET 4x4) ---------
+const orbImg = new Image();
+const orbPath = "orb-electric.png";
 
+const ORB_COLS = 4;
+const ORB_ROWS = 4;
+const ORB_FRAME_COUNT = 16;
+let ORB_FRAME_SIZE = 128;      // lo ajustaremos al cargar
+const ORB_DRAW_SIZE = 18;      // tamaño dentro del juego (px lógicos)
+
+let orbAnimTime = 0;
+let orbFrame = 0;
 // --------- SPRITES DE THUNDER (UN PNG POR ESTADO) ---------
 const SPRITE_DRAW_WIDTH = 26;   // tamaño final dentro del juego
 const SPRITE_DRAW_HEIGHT = 36;
@@ -164,7 +175,17 @@ async function preloadAssets() {
   for (const key in thunderPaths) {
     allImages.push(loadImage(thunderImgs[key], thunderPaths[key]));
   }
+  // Precarga sprite del orbe
+  allImages.push(loadImage(orbImg, orbPath));
 
+  // Espera a que todas las imágenes se carguen
+  await Promise.all(allImages);
+  console.log("Todos los recursos cargados. Iniciando juego.");
+
+  // Ajusta el tamaño de frame según la imagen real
+  if (orbImg.naturalWidth) {
+    ORB_FRAME_SIZE = orbImg.naturalWidth / ORB_COLS;
+  }
   // Espera a que todas las imágenes se carguen
   await Promise.all(allImages);
   console.log("Todos los recursos cargados. Iniciando juego.");
@@ -298,12 +319,12 @@ function drawThunder(ctx, x, y, state) {
         plat.rangeMax = VW - PLATFORM_WIDTH - 10;
       }
 
-      // Probabilidad de flecha (menos que antes: 0.07)
+      // Probabilidad de ORBE eléctrico
       if (zone.key !== "garden" && Math.random() < 0.07) {
         powerUps.push({
           x: x + PLATFORM_WIDTH / 2,
-          y: y - 8,
-          r: 4,
+          y: y - 10,
+          r: ORB_DRAW_SIZE * 0.6, // radio de colisión aproximado
           taken: false
         });
       }
@@ -505,7 +526,9 @@ function drawThunder(ctx, x, y, state) {
       if (!player.alive) return;
 
       const zone = getZone(world.heightMeters);
-
+      // Avanza la animación del orbe
+      orbAnimTime += dt;
+      orbFrame = Math.floor(orbAnimTime * 14) % ORB_FRAME_COUNT; // 14 fps aprox
       // Temporizador de boost (por si lo quieres usar después)
       if (world.jumpBoostTimer > 0) {
         world.jumpBoostTimer -= dt;
@@ -823,63 +846,38 @@ function drawGround() {
       }
     }
 
-    // --------- FLECHAS POWER-UP ---------
+     // --------- ORBES POWER-UP (SPRITE SHEET) ---------
     function drawPowerUps() {
+      if (!orbImg.complete || !orbImg.naturalWidth) return;
+
+      const frameSize = ORB_FRAME_SIZE;
+      const col = orbFrame % ORB_COLS;
+      const row = Math.floor(orbFrame / ORB_COLS);
+      const sx = col * frameSize;
+      const sy = row * frameSize;
+
       for (const pu of powerUps) {
         ctx.save();
         ctx.translate(pu.x, pu.y);
 
-        const base = pu.r * 3;
-        const h = base;
-        const w = base * 0.7;
-
-        // Glow verde
-        const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, h * 0.9);
-        glow.addColorStop(0, "rgba(0,255,170,0.9)");
-        glow.addColorStop(1, "rgba(0,255,170,0)");
-        ctx.fillStyle = glow;
-        ctx.beginPath();
-        ctx.arc(0, 0, h * 0.9, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Flecha
-        const gradArrow = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
-        gradArrow.addColorStop(0, "#b8fff0");
-        gradArrow.addColorStop(0.4, "#66ffcc");
-        gradArrow.addColorStop(1, "#00cc66");
-
-        ctx.beginPath();
-        // punta
-        ctx.moveTo(0, -h / 2);
-        ctx.lineTo(-w / 2, -h / 6);
-        ctx.lineTo(-w / 6, -h / 6);
-        // cuerpo
-        ctx.lineTo(-w / 6, h / 2);
-        ctx.lineTo(w / 6, h / 2);
-        ctx.lineTo(w / 6, -h / 6);
-        ctx.lineTo(w / 2, -h / 6);
-        ctx.closePath();
-
-        ctx.fillStyle = gradArrow;
-        ctx.strokeStyle = "#003322";
-        ctx.lineWidth = 1.5;
-        ctx.fill();
-        ctx.stroke();
-
-        // Textura de energía vertical
+        // Pequeño glow alrededor del orbe
         ctx.save();
-        ctx.clip();
-        ctx.strokeStyle = "rgba(255,255,255,0.5)";
-        ctx.lineWidth = 0.9;
-        const lines = 3;
-        for (let i = 0; i < lines; i++) {
-          const lx = -w * 0.2 + (i * w * 0.2);
-          ctx.beginPath();
-          ctx.moveTo(lx, h / 2);
-          ctx.lineTo(lx, -h / 6);
-          ctx.stroke();
-        }
+        const glowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, ORB_DRAW_SIZE);
+        glowGrad.addColorStop(0, "rgba(255,255,180,0.9)");
+        glowGrad.addColorStop(1, "rgba(255,255,180,0)");
+        ctx.fillStyle = glowGrad;
+        ctx.beginPath();
+        ctx.arc(0, 0, ORB_DRAW_SIZE, 0, Math.PI * 2);
+        ctx.fill();
         ctx.restore();
+
+        const drawSize = ORB_DRAW_SIZE * 2; // diámetro
+        ctx.drawImage(
+          orbImg,
+          sx, sy, frameSize, frameSize,
+          -drawSize / 2, -drawSize / 2,
+          drawSize, drawSize
+        );
 
         ctx.restore();
       }
