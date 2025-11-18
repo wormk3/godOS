@@ -37,7 +37,7 @@
       display: block;
     }
 
-   .hud-top {
+.hud-top {
   position: absolute;
   top: 4px;
   left: 0;
@@ -46,8 +46,6 @@
   padding: 4px 10px;
   text-shadow: 0 0 4px #000;
   box-sizing: border-box;
-}
-.hud-top {
   background: linear-gradient(
     to bottom,
     rgba(0,0,0,0.35),
@@ -175,25 +173,21 @@ async function preloadAssets() {
 // -------------------------------------------------------------------
 // RESTO DEL CÓDIGO PERMANECE IGUAL (A PARTIR DE canvas / ctx)
 // -------------------------------------------------------------------
-
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
+
     const hudBottom = document.getElementById("hudBottom");
-const hudScore  = document.getElementById("hudScore");
-const hudZone   = document.getElementById("hudZone");
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+    const hudScore  = document.getElementById("hudScore");
+    const hudZone   = document.getElementById("hudZone");
 
-// Resolución lógica (lo que usa el juego)
-const VW = 180;
-const VH = 320;
+    // Resolución lógica del juego
+    const VW = 180;
+    const VH = 320;
 
-// ⬆️ Doble resolución interna para que se vea nitido (360x640)
-canvas.width  = VW * 2;
-canvas.height = VH * 2;
-
-// Escalamos todo el dibujo x2
-ctx.scale(2, 2);
+    // Resolución física x2 para pantallas retina (360x640)
+    canvas.width  = VW * 2;
+    canvas.height = VH * 2;
+    ctx.scale(2, 2);
 function drawThunder(ctx, x, y, state) {
   let img = thunderImgs.idle;
 
@@ -214,8 +208,7 @@ function drawThunder(ctx, x, y, state) {
   );
 }
 
-    const VW = 180;
-    const VH = 320;
+
 
     let lastTime = 0;
     let leftHeld = false;
@@ -663,17 +656,21 @@ function drawThunder(ctx, x, y, state) {
       updateHazards(dt, zoneNow);
       applyHazardCollisions();
 
+      // HUD inferior: solo mejor + mensaje de reinicio
       const bestMeters = Math.floor(bestHeight / 10);
       hudBottom.textContent =
-        `Altura: ${heightMeters} m · Mejor: ${bestMeters} m` +
+        `Mejor: ${bestMeters} m` +
         (!player.alive ? " · Toca o presiona ESPACIO para reiniciar" : "");
 
-      let topText = `THUNDER ASCENSION — Zona: ${zoneNow.name}`;
-      if (world.controlsInverted) topText += " · Controles invertidos";
+      // HUD superior (como en Doodle Jump / Flappy)
+      hudScore.textContent = `${heightMeters} m`;
+
+      let zoneText = `THUNDER ASCENSION — Zona: ${zoneNow.name}`;
+      if (world.controlsInverted) zoneText += " · Controles invertidos";
       if (world.jumpBoostMultiplier > 1.01) {
-        topText += ` · Salto x${world.jumpBoostMultiplier.toFixed(1)}`;
+        zoneText += ` · Salto x${world.jumpBoostMultiplier.toFixed(1)}`;
       }
-      hudTop.textContent = topText;
+      hudZone.textContent = zoneText;
     }
 
     // ---------- DIBUJO ----------
