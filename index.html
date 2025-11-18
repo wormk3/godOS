@@ -155,30 +155,29 @@ const thunderPaths = {
 async function preloadAssets() {
   const allImages = [];
 
-  // Función auxiliar para cargar una sola imagen con una Promise
-  const loadImage = (img, path) => new Promise((resolve, reject) => {
+  const loadImage = (img, path) => new Promise((resolve) => {
     img.onload = () => resolve();
     img.onerror = () => {
       console.error(`Error al cargar: ${path}`);
-      // No reject, permite que el juego continúe con un fallback si es posible
       resolve();
     };
     img.src = path;
   });
 
-  // Precarga de fondos
+  // Fondos
   for (const key in bgPaths) {
     allImages.push(loadImage(bgImgs[key], bgPaths[key]));
   }
 
-  // Precarga de sprites de Thunder
+  // Sprites de Thunder
   for (const key in thunderPaths) {
     allImages.push(loadImage(thunderImgs[key], thunderPaths[key]));
   }
-  // Precarga sprite del orbe
+
+  // Sprite sheet del orbe
   allImages.push(loadImage(orbImg, orbPath));
 
-  // Espera a que todas las imágenes se carguen
+  // Espera a todas
   await Promise.all(allImages);
   console.log("Todos los recursos cargados. Iniciando juego.");
 
@@ -186,11 +185,7 @@ async function preloadAssets() {
   if (orbImg.naturalWidth) {
     ORB_FRAME_SIZE = orbImg.naturalWidth / ORB_COLS;
   }
-  // Espera a que todas las imágenes se carguen
-  await Promise.all(allImages);
-  console.log("Todos los recursos cargados. Iniciando juego.");
 }
-
 // -------------------------------------------------------------------
 // RESTO DEL CÓDIGO PERMANECE IGUAL (A PARTIR DE canvas / ctx)
 // -------------------------------------------------------------------
@@ -847,41 +842,51 @@ function drawGround() {
     }
 
      // --------- ORBES POWER-UP (SPRITE SHEET) ---------
-    function drawPowerUps() {
-      if (!orbImg.complete || !orbImg.naturalWidth) return;
+// --------- ORBES POWER-UP (SPRITE SHEET) ---------
+function drawPowerUps() {
+  const hasSprite = orbImg.complete && orbImg.naturalWidth;
 
-      const frameSize = ORB_FRAME_SIZE;
-      const col = orbFrame % ORB_COLS;
-      const row = Math.floor(orbFrame / ORB_COLS);
-      const sx = col * frameSize;
-      const sy = row * frameSize;
+  let frameSize = ORB_FRAME_SIZE;
+  let col = 0;
+  let row = 0;
+  let sx = 0;
+  let sy = 0;
 
-      for (const pu of powerUps) {
-        ctx.save();
-        ctx.translate(pu.x, pu.y);
+  if (hasSprite) {
+    frameSize = ORB_FRAME_SIZE;
+    col = orbFrame % ORB_COLS;
+    row = Math.floor(orbFrame / ORB_COLS);
+    sx = col * frameSize;
+    sy = row * frameSize;
+  }
 
-        // Pequeño glow alrededor del orbe
-        ctx.save();
-        const glowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, ORB_DRAW_SIZE);
-        glowGrad.addColorStop(0, "rgba(255,255,180,0.9)");
-        glowGrad.addColorStop(1, "rgba(255,255,180,0)");
-        ctx.fillStyle = glowGrad;
-        ctx.beginPath();
-        ctx.arc(0, 0, ORB_DRAW_SIZE, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+  for (const pu of powerUps) {
+    ctx.save();
+    ctx.translate(pu.x, pu.y);
 
-        const drawSize = ORB_DRAW_SIZE * 2; // diámetro
-        ctx.drawImage(
-          orbImg,
-          sx, sy, frameSize, frameSize,
-          -drawSize / 2, -drawSize / 2,
-          drawSize, drawSize
-        );
+    // 🔆 Glow SIEMPRE visible, aunque el sprite no cargue
+    const glowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, ORB_DRAW_SIZE);
+    glowGrad.addColorStop(0, "rgba(255,255,180,0.9)");
+    glowGrad.addColorStop(1, "rgba(255,255,180,0)");
+    ctx.fillStyle = glowGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, ORB_DRAW_SIZE, 0, Math.PI * 2);
+    ctx.fill();
 
-        ctx.restore();
-      }
+    // Solo dibuja el sprite si la imagen cargó bien
+    if (hasSprite) {
+      const drawSize = ORB_DRAW_SIZE * 2; // diámetro
+      ctx.drawImage(
+        orbImg,
+        sx, sy, frameSize, frameSize,
+        -drawSize / 2, -drawSize / 2,
+        drawSize, drawSize
+      );
     }
+
+    ctx.restore();
+  }
+}
 
     // --------- THUNDER (Jugador) CON SPRITE ---------
     function drawPlayer() {
