@@ -120,18 +120,17 @@ const bgPaths = {
   virgo: "bg-virgo.JPG",
   horizon: "bg-horizon.JPG"
 };
-// --------- ORBE POWER-UP (SPRITE SHEET 4x4) ---------
+// --------- ORBE POWER-UP (SPRITE SHEET 8 FRAMES EN UNA FILA) ---------
 const orbImg = new Image();
-const orbPath = "orbe-electric.png";
+const orbPath = "orb-electric.png";
 
-const ORB_COLS = 4;
-const ORB_ROWS = 4;
-const ORB_FRAME_COUNT = 16;
-let ORB_FRAME_SIZE = 128;      // lo ajustaremos al cargar
-const ORB_DRAW_SIZE = 18;      // tamaño dentro del juego (px lógicos)
+const ORB_COLS = 8;      // ✔ 8 columnas porque hiciste 8 frames
+const ORB_ROWS = 1;      // ✔ 1 fila
+const ORB_FRAME_COUNT = 8;
 
-let orbAnimTime = 0;
-let orbFrame = 0;
+let ORB_FRAME_SIZE = 128;      // ✔ cada cuadro es 128x128 (lo ajustaremos al cargar)
+const ORB_DRAW_SIZE = 18;      // tamaño dentro del juego
+
 // --------- SPRITES DE THUNDER (UN PNG POR ESTADO) ---------
 const SPRITE_DRAW_WIDTH = 26;   // tamaño final dentro del juego
 const SPRITE_DRAW_HEIGHT = 36;
@@ -181,11 +180,12 @@ async function preloadAssets() {
   await Promise.all(allImages);
   console.log("Todos los recursos cargados. Iniciando juego.");
 
-  // Ajusta el tamaño de frame según la imagen real
-  if (orbImg.naturalWidth) {
-    ORB_FRAME_SIZE = orbImg.naturalWidth / ORB_COLS;
-  }
+
+// Ajusta el tamaño de frame según la imagen real
+if (orbImg.naturalWidth) {
+  ORB_FRAME_SIZE = orbImg.naturalWidth / ORB_COLS;
 }
+
 // -------------------------------------------------------------------
 // RESTO DEL CÓDIGO PERMANECE IGUAL (A PARTIR DE canvas / ctx)
 // -------------------------------------------------------------------
@@ -523,7 +523,8 @@ function drawThunder(ctx, x, y, state) {
       const zone = getZone(world.heightMeters);
       // Avanza la animación del orbe
       orbAnimTime += dt;
-      orbFrame = Math.floor(orbAnimTime * 14) % ORB_FRAME_COUNT; // 14 fps aprox
+      orbFrame = Math.floor(orbAnimTime * 14) % ORB_FRAME_COUNT; // 14 fps suaves
+
       // Temporizador de boost (por si lo quieres usar después)
       if (world.jumpBoostTimer > 0) {
         world.jumpBoostTimer -= dt;
@@ -844,49 +845,41 @@ function drawGround() {
      // --------- ORBES POWER-UP (SPRITE SHEET) ---------
 // --------- ORBES POWER-UP (SPRITE SHEET) ---------
 function drawPowerUps() {
-  const hasSprite = orbImg.complete && orbImg.naturalWidth;
+  if (!orbImg.complete || !orbImg.naturalWidth) return;
 
-  let frameSize = ORB_FRAME_SIZE;
-  let col = 0;
-  let row = 0;
-  let sx = 0;
-  let sy = 0;
-
-  if (hasSprite) {
-    frameSize = ORB_FRAME_SIZE;
-    col = orbFrame % ORB_COLS;
-    row = Math.floor(orbFrame / ORB_COLS);
-    sx = col * frameSize;
-    sy = row * frameSize;
-  }
+  const frameSize = ORB_FRAME_SIZE;
+  const col = orbFrame % ORB_COLS;     // ✔ solo columnas, porque solo hay 1 fila
+  const row = 0;                       // ✔ siempre en fila 0
+  const sx = col * frameSize;
+  const sy = 0;
 
   for (const pu of powerUps) {
     ctx.save();
     ctx.translate(pu.x, pu.y);
 
-    // 🔆 Glow SIEMPRE visible, aunque el sprite no cargue
-    const glowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, ORB_DRAW_SIZE);
-    glowGrad.addColorStop(0, "rgba(255,255,180,0.9)");
-    glowGrad.addColorStop(1, "rgba(255,255,180,0)");
-    ctx.fillStyle = glowGrad;
+    // Glow suave
+    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, ORB_DRAW_SIZE * 1.4);
+    glow.addColorStop(0, "rgba(255,255,180,0.9)");
+    glow.addColorStop(1, "rgba(255,255,180,0)");
+    ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.arc(0, 0, ORB_DRAW_SIZE, 0, Math.PI * 2);
+    ctx.arc(0, 0, ORB_DRAW_SIZE * 1.4, 0, Math.PI * 2);
     ctx.fill();
 
-    // Solo dibuja el sprite si la imagen cargó bien
-    if (hasSprite) {
-      const drawSize = ORB_DRAW_SIZE * 2; // diámetro
-      ctx.drawImage(
-        orbImg,
-        sx, sy, frameSize, frameSize,
-        -drawSize / 2, -drawSize / 2,
-        drawSize, drawSize
-      );
-    }
+    // Dibujo real del sprite
+    const drawSize = ORB_DRAW_SIZE * 2;
+    ctx.drawImage(
+      orbImg,
+      sx, sy,
+      frameSize, frameSize,
+      -drawSize / 2, -drawSize / 2,
+      drawSize, drawSize
+    );
 
     ctx.restore();
   }
 }
+
 
     // --------- THUNDER (Jugador) CON SPRITE ---------
     function drawPlayer() {
