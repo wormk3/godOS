@@ -37,7 +37,7 @@
       display: block;
     }
 
-    /* HUD SUPERIOR */
+    /* HUD SUPERIOR ROJO */
     .hud-top {
       position: absolute;
       top: 4px;
@@ -45,25 +45,43 @@
       width: 100%;
       pointer-events: none;
       padding: 4px 10px;
-      background: rgba(40,40,40,0.8); /* gris 80% */
+      background: linear-gradient(90deg, #2b000c, #410016, #2b000c);
       display: flex;
-      justify-content: space-between;
       align-items: center;
       text-shadow: 0 0 4px #000;
       z-index: 10;
+      border-bottom: 1px solid #ff5577;
     }
 
-    .hud-left { display: flex; flex-direction: column; }
+    .hud-left {
+      min-width: 64px;
+    }
 
     .hud-score {
       font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: #ff3344;          /* metros en rojo */
+    }
+
+    .hud-center {
+      flex: 1;
+      text-align: center;
+      line-height: 1.1;
+    }
+
+    .hud-title {
+      font-size: 13px;
       font-weight: 700;
       letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #ffe5e5;
     }
 
     .hud-zone {
       font-size: 11px;
-      opacity: 0.85;
+      opacity: 0.9;
+      color: #ffb3c1;
     }
 
     .hud-coins {
@@ -72,6 +90,9 @@
       gap: 4px;
       font-size: 15px;
       font-weight: 700;
+      color: #ffd84a;          /* contador amarillo */
+      min-width: 40px;
+      justify-content: flex-end;
     }
 
     .coin-icon {
@@ -109,15 +130,20 @@
   <div class="hud-top">
     <div class="hud-left">
       <div id="hudScore" class="hud-score">0 m</div>
-      <div id="hudZone" class="hud-zone">THUNDER ASCENSION — Zona: Jardín</div>
     </div>
+
+    <div class="hud-center">
+      <div class="hud-title">THUNDER ASCENSION</div>
+      <div id="hudZone" class="hud-zone">Zona: Jardín</div>
+    </div>
+
     <div class="hud-coins">
-      <img src="thunder-coin.png" class="coin-icon" alt="coin" />
+      <!-- OJO: respeta mayúsculas como en el archivo -->
+      <img src="thunder-coin.PNG" class="coin-icon" alt="coin" />
       <span id="hudCoins">0</span>
     </div>
   </div>
 
-  <!-- AQUÍ SÍ VA EL CANVAS -->
   <canvas id="game"></canvas>
 
   <div class="hint">PC: Flechas ← → · Móvil: toca izquierda/derecha</div>
@@ -146,7 +172,7 @@ const bgPaths = {
   horizon: "bg-horizon.JPG"
 };
 
-// --------- ORBE POWER-UP (SPRITE SHEET 8 FRAMES) ---------
+// --------- ORBE POWER-UP (SPRITE SHEET) ---------
 const orbImg = new Image();
 const orbPath = "orb-electric.png";
 
@@ -156,6 +182,17 @@ const ORB_DRAW_SIZE = 10;
 
 let orbAnim = 0;
 let orbFrame = 0;
+
+// --------- THUNDER COIN (SPRITE SHEET 9 FRAMES) ---------
+const coinImg = new Image();
+const coinPath = "thunder-coin.PNG";   // sprite sheet que hiciste
+
+const COIN_COLS = 9;
+let COIN_FRAME_SIZE = 64;              // se ajusta al cargar
+const COIN_DRAW_SIZE = 11;             // tamaño en el mundo
+
+let coinAnim = 0;
+let coinFrame = 0;
 
 // --------- SPRITES THUNDER ---------
 const thunderImgs = {
@@ -186,11 +223,15 @@ async function preloadAssets() {
   for (let k in bgPaths)      tasks.push(load(bgImgs[k], bgPaths[k]));
   for (let k in thunderPaths) tasks.push(load(thunderImgs[k], thunderPaths[k]));
   tasks.push(load(orbImg, orbPath));
+  tasks.push(load(coinImg, coinPath));
 
   await Promise.all(tasks);
 
   if (orbImg.naturalWidth) {
     ORB_FRAME_SIZE = orbImg.naturalWidth / ORB_COLS;
+  }
+  if (coinImg.naturalWidth) {
+    COIN_FRAME_SIZE = coinImg.naturalWidth / COIN_COLS;
   }
 
   console.log("Assets cargados");
@@ -214,7 +255,7 @@ const hudZone   = document.getElementById("hudZone");
 const hudCoins  = document.getElementById("hudCoins");
 const hudBottom = document.getElementById("hudBottom");
 
-let coins      = 0;
+let coins      = 0;     // contador de monedas
 let lastTime   = 0;
 let leftHeld   = false;
 let rightHeld  = false;
@@ -239,7 +280,8 @@ const player = {
 };
 
 let platforms = [];
-let powerUps  = [];
+let powerUps  = [];   // orbes eléctricos
+let coinItems = [];   // monedas recogibles
 
 // ======================================================
 //                FUNCIONES DE ZONAS
@@ -254,23 +296,29 @@ function getZone(height) {
 }
 
 // ======================================================
-//             PLATAFORMAS / POWERUPS
+//             PLATAFORMAS / POWERUPS / COINS
 // ======================================================
 function createPlatform(x, y) {
-  const plat = {
-    x, y,
-    w: 40,
-    h: 6
-  };
+  const plat = { x, y, w: 40, h: 6 };
 
   const zone = getZone(world.heightMeters);
 
-  // Orbe eléctrico en plataformas (no en Jardín)
+  // Orbe eléctrico (salto) – sólo fuera del Jardín
   if (zone.key !== "garden" && Math.random() < 0.08) {
     powerUps.push({
       x: x + 20,
       y: y - 10,
       r: ORB_DRAW_SIZE * 0.3,
+      taken: false
+    });
+  }
+
+  // Monedas Thunder – pueden salir en cualquier zona
+  if (Math.random() < 0.18) {
+    coinItems.push({
+      x: x + 20,
+      y: y - 12,
+      r: COIN_DRAW_SIZE * 0.5,
       taken: false
     });
   }
@@ -281,6 +329,7 @@ function createPlatform(x, y) {
 function initPlatforms() {
   platforms = [];
   powerUps  = [];
+  coinItems = [];
 
   let y = VH - 20;
   platforms.push(createPlatform(VW/2 - 20, y));
@@ -331,7 +380,6 @@ function clearTouch() {
   rightHeld = false;
 }
 
-// Usamos TODO el documento para evitar bugs de iOS
 document.addEventListener("touchstart", handleTouch, { passive:false });
 document.addEventListener("touchmove",  handleTouch, { passive:false });
 document.addEventListener("touchend",   clearTouch,  { passive:false });
@@ -372,7 +420,6 @@ function drawBackground() {
 
     ctx.drawImage(img, (VW-dw)/2, (VH-dh)/2, dw, dh);
   } else {
-    // gradiente de emergencia
     const grad = ctx.createLinearGradient(0,0,0,VH);
     grad.addColorStop(0, z.top);
     grad.addColorStop(0.5, z.mid);
@@ -405,7 +452,6 @@ function drawPowerUps() {
   for (const pu of powerUps) {
     if (pu.taken) continue;
 
-    // glow
     const glowR = ORB_DRAW_SIZE*1.4;
     const grad = ctx.createRadialGradient(pu.x, pu.y, 0, pu.x, pu.y, glowR);
     grad.addColorStop(0, "rgba(255,255,180,0.9)");
@@ -415,7 +461,6 @@ function drawPowerUps() {
     ctx.arc(pu.x, pu.y, glowR, 0, Math.PI*2);
     ctx.fill();
 
-    // sprite
     ctx.drawImage(
       orbImg,
       orbFrame*fs, 0, fs, fs,
@@ -423,6 +468,28 @@ function drawPowerUps() {
       pu.y - ORB_DRAW_SIZE,
       ORB_DRAW_SIZE*2,
       ORB_DRAW_SIZE*2
+    );
+  }
+}
+
+function drawCoins() {
+  if (!coinImg.complete || !coinImg.naturalWidth) return;
+
+  coinAnim += 0.18;
+  coinFrame = Math.floor(coinAnim) % COIN_COLS;
+
+  const fs = COIN_FRAME_SIZE;
+
+  for (const c of coinItems) {
+    if (c.taken) continue;
+
+    ctx.drawImage(
+      coinImg,
+      coinFrame * fs, 0, fs, fs,
+      c.x - COIN_DRAW_SIZE,
+      c.y - COIN_DRAW_SIZE,
+      COIN_DRAW_SIZE * 2,
+      COIN_DRAW_SIZE * 2
     );
   }
 }
@@ -454,7 +521,7 @@ function update(dt) {
   if (rightHeld && !leftHeld)  player.vx += 0.26 * dt * 60;
   if (!leftHeld && !rightHeld) player.vx *= world.friction;
 
-  if (player.vx > world.maxVX) player.vx = world.maxVX;
+  if (player.vx > world.maxVX)  player.vx = world.maxVX;
   if (player.vx < -world.maxVX) player.vx = -world.maxVX;
 
   player.x += player.vx * dt * 60;
@@ -486,6 +553,7 @@ function update(dt) {
 
     for (let p of platforms) p.y += diff;
     for (let pu of powerUps) pu.y += diff;
+    for (let c of coinItems) c.y += diff;
 
     platforms = platforms.filter(p => p.y < VH+20);
     while (platforms.length < 20) {
@@ -496,6 +564,7 @@ function update(dt) {
     }
 
     powerUps = powerUps.filter(pu => pu.y < VH+40 && !pu.taken);
+    coinItems = coinItems.filter(c => c.y < VH+40 && !c.taken);
   }
 
   // recoger orbes
@@ -507,8 +576,18 @@ function update(dt) {
     if (dx*dx + dy*dy < rr*rr) {
       pu.taken = true;
       player.vy = world.baseJumpVel * 1.3;
-      // opcional: sumar coins si luego los usas
-      // coins++;
+    }
+  }
+
+  // recoger monedas
+  for (const c of coinItems) {
+    if (c.taken) continue;
+    const dx = c.x - player.x;
+    const dy = c.y - player.y;
+    const rr = c.r + player.r;
+    if (dx*dx + dy*dy < rr*rr) {
+      c.taken = true;
+      coins += 1;     // cada moneda vale 1
     }
   }
 
@@ -516,7 +595,7 @@ function update(dt) {
   world.heightMeters = meters;
 
   hudScore.textContent = `${meters} m`;
-  hudZone.textContent  = `THUNDER ASCENSION — Zona: ${getZone(meters).name}`;
+  hudZone.textContent  = `Zona: ${getZone(meters).name}`;
   hudCoins.textContent = coins;
 
   if (player.y > VH + 20) {
@@ -540,6 +619,7 @@ function gameLoop(ts) {
   drawBackground();
   drawPlatforms();
   drawPowerUps();
+  drawCoins();
   drawThunder();
 
   requestAnimationFrame(gameLoop);
@@ -558,6 +638,7 @@ function resetGame() {
   player.vy = -5;
   player.alive = true;
 
+  coins = 0;
   initPlatforms();
   hudBottom.textContent = `Mejor: ${Math.floor(bestHeight/10)} m`;
 }
