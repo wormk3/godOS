@@ -131,6 +131,10 @@ const ORB_FRAME_COUNT = 8;
 let ORB_FRAME_SIZE = 128;      // ✔ cada cuadro es 128x128 (lo ajustaremos al cargar)
 const ORB_DRAW_SIZE = 18;      // tamaño dentro del juego
 
+// 🔥 variables de animación
+let orbAnimTime = 0;
+let orbFrame = 0;
+
 // --------- SPRITES DE THUNDER (UN PNG POR ESTADO) ---------
 const SPRITE_DRAW_WIDTH = 26;   // tamaño final dentro del juego
 const SPRITE_DRAW_HEIGHT = 36;
@@ -179,7 +183,7 @@ async function preloadAssets() {
   // Espera a todas
   await Promise.all(allImages);
   console.log("Todos los recursos cargados. Iniciando juego.");
-
+}
 
 // Ajusta el tamaño de frame según la imagen real
 if (orbImg.naturalWidth) {
