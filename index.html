@@ -152,7 +152,7 @@ const orbPath = "orb-electric.png";
 
 const ORB_COLS = 8;
 let ORB_FRAME_SIZE = 128;
-const ORB_DRAW_SIZE = 18;
+const ORB_DRAW_SIZE = 10;
 
 let orbAnim = 0;
 let orbFrame = 0;
@@ -270,7 +270,7 @@ function createPlatform(x, y) {
     powerUps.push({
       x: x + 20,
       y: y - 10,
-      r: ORB_DRAW_SIZE * 0.6,
+      r: ORB_DRAW_SIZE * 0.3,
       taken: false
     });
   }
