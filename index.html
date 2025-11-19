@@ -298,34 +298,53 @@ function getZone(height) {
 // ======================================================
 //             PLATAFORMAS / POWERUPS / COINS
 // ======================================================
+const PLATFORM_TYPES = {
+  NORMAL: 'normal',
+  SMALL: 'small',
+  BREAK: 'break',
+  MOVE: 'move',
+  BOOST: 'boost'
+};
+
 function createPlatform(x, y) {
-  const plat = { x, y, w: 40, h: 6 };
+  const difficulty = world.heightMeters; // para escalar con altura
+  let type = PLATFORM_TYPES.NORMAL;
 
-  const zone = getZone(world.heightMeters);
+  const r = Math.random();
 
-  // Orbe eléctrico (salto) – sólo fuera del Jardín
-  if (zone.key !== "garden" && Math.random() < 0.08) {
-    powerUps.push({
-      x: x + 20,
-      y: y - 10,
-      r: ORB_DRAW_SIZE * 0.3,
-      taken: false
-    });
-  }
+  // Elegimos tipo en función de la altura
+  if (difficulty > 3000 && r < 0.15)       type = PLATFORM_TYPES.SMALL;
+  else if (difficulty > 2000 && r < 0.10)  type = PLATFORM_TYPES.BREAK;
+  else if (difficulty > 800  && r < 0.10)  type = PLATFORM_TYPES.MOVE;
+  else if (r < 0.05)                       type = PLATFORM_TYPES.BOOST; // trampolín
 
-  // Monedas Thunder – pueden salir en cualquier zona
+  const wBase = 40;
+
+  const plat = {
+    x,
+    y,
+    w: type === PLATFORM_TYPES.SMALL ? 26 : wBase,
+    h: 6,
+    type,
+    // solo las MOVE se mueven
+    vx: (type === PLATFORM_TYPES.MOVE ? (Math.random() < 0.5 ? -0.4 : 0.4) : 0),
+    rangeMin: 10,
+    rangeMax: VW - 10,
+    broken: false   // para las BREAK
+  };
+
+  // Monedas Thunder – pueden salir en cualquier plataforma
   if (Math.random() < 0.18) {
     coinItems.push({
-      x: x + 20,
+      x: x + plat.w / 2,
       y: y - 12,
-      r: COIN_DRAW_SIZE * 0.5,
+      r: COIN_DRAW_SIZE * 0.3,
       taken: false
     });
   }
 
   return plat;
 }
-
 function initPlatforms() {
   platforms = [];
   powerUps  = [];
@@ -431,16 +450,50 @@ function drawBackground() {
 
 function drawPlatforms() {
   for (const p of platforms) {
+    // Sombra base
     ctx.fillStyle = "#2a1238";
-    ctx.fillRect(p.x, p.y+2, p.w, p.h);
-    const g = ctx.createLinearGradient(p.x, p.y, p.x, p.y+p.h);
-    g.addColorStop(0, "#ff8cff");
-    g.addColorStop(1, "#d350ff");
+    ctx.fillRect(p.x, p.y + 2, p.w, p.h);
+
+    // Colores según tipo
+    let topColor    = "#ff8cff";
+    let bottomColor = "#d350ff";
+
+    if (p.type === PLATFORM_TYPES.BREAK) {
+      // Naranjita (peligro)
+      topColor    = "#ffb347";
+      bottomColor = "#ff6b3d";
+    } else if (p.type === PLATFORM_TYPES.MOVE) {
+      // Azul
+      topColor    = "#8cd6ff";
+      bottomColor = "#5075ff";
+    } else if (p.type === PLATFORM_TYPES.BOOST) {
+      // Verde eléctrico (trampolín)
+      topColor    = "#c7ff6b";
+      bottomColor = "#5fd63a";
+    } else if (p.type === PLATFORM_TYPES.SMALL) {
+      // Rosita pero más intenso
+      topColor    = "#ff9cff";
+      bottomColor = "#e040ff";
+    }
+
+    const g = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.h);
+    g.addColorStop(0, topColor);
+    g.addColorStop(1, bottomColor);
     ctx.fillStyle = g;
     ctx.fillRect(p.x, p.y, p.w, p.h);
+
+    // Opcional: rayas para las BREAK (para que se vean frágiles)
+    if (p.type === PLATFORM_TYPES.BREAK) {
+      ctx.strokeStyle = "rgba(80,0,0,0.6)";
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x + p.w, p.y + p.h);
+      ctx.moveTo(p.x + p.w * 0.2, p.y);
+      ctx.lineTo(p.x + p.w * 0.8, p.y + p.h);
+      ctx.stroke();
+    }
   }
 }
-
 function drawPowerUps() {
   if (!orbImg.complete || !orbImg.naturalWidth) return;
 
@@ -516,6 +569,21 @@ function drawThunder() {
 function update(dt) {
   if (!player.alive) return;
 
+  // Mover plataformas móviles (MOVE) izquierda / derecha
+  for (const p of platforms) {
+    if (p.type === PLATFORM_TYPES.MOVE) {
+      p.x += p.vx * dt * 60;
+
+      // Rebote en los bordes definidos
+      if (p.x < p.rangeMin || p.x + p.w > p.rangeMax) {
+        p.vx *= -1;
+        // corregimos para que no se salga
+        if (p.x < p.rangeMin) p.x = p.rangeMin;
+        if (p.x + p.w > p.rangeMax) p.x = p.rangeMax - p.w;
+      }
+    }
+  }
+
   // movimiento lateral
   if (leftHeld && !rightHeld)  player.vx -= 0.26 * dt * 60;
   if (rightHeld && !leftHeld)  player.vx += 0.26 * dt * 60;
@@ -532,14 +600,29 @@ function update(dt) {
   player.vy += world.gravity * dt * 60;
   player.y  += player.vy * dt * 60;
 
-  // colisión plataformas
+    // colisión plataformas
   if (player.vy > 0) {
     for (const p of platforms) {
-      if (player.x > p.x-7 && player.x < p.x+p.w+7 &&
-          player.y + player.r > p.y &&
-          player.y + player.r < p.y + p.h + player.vy*dt*60 + 1) {
+      if (
+        player.x > p.x - 7 &&
+        player.x < p.x + p.w + 7 &&
+        player.y + player.r > p.y &&
+        player.y + player.r < p.y + p.h + player.vy * dt * 60 + 1
+      ) {
+        // Lo pegamos encima de la plataforma
         player.y = p.y - player.r;
-        player.vy = world.baseJumpVel;
+
+        // Si es BOOST, salto más fuerte
+        if (p.type === PLATFORM_TYPES.BOOST) {
+          player.vy = world.baseJumpVel * 1.6;
+        } else {
+          player.vy = world.baseJumpVel;
+        }
+
+        // Si es BREAK, la marcamos para que desaparezca
+        if (p.type === PLATFORM_TYPES.BREAK) {
+          p.broken = true;
+        }
       }
     }
   }
