@@ -127,8 +127,8 @@
     <div class="hint">PC: Flechas ← → · Móvil: toca izquierda / derecha</div>
   </div>
 
-  <script>
-  // --------- FONDOS CON IMAGEN ---------
+ <script>
+// --------- FONDOS CON IMAGEN ---------
 const bgImgs = {
   garden: new Image(),
   sky: new Image(),
@@ -147,54 +147,48 @@ const bgPaths = {
   virgo: "bg-virgo.JPG",
   horizon: "bg-horizon.JPG"
 };
-// --------- MONEDAS (Thunder Coin) ---------
-const coinImg = new Image();
-const coinPath = "thunder-coin.png";
 
-let coins = [];
-let coinCount = 0;
 // --------- ORBE POWER-UP (SPRITE SHEET 8 FRAMES EN UNA FILA) ---------
 const orbImg = new Image();
 const orbPath = "orb-electric.png";
 
-const ORB_COLS = 8;      // ✔ 8 columnas porque hiciste 8 frames
-const ORB_ROWS = 1;      // ✔ 1 fila
+const ORB_COLS = 8;
+const ORB_ROWS = 1;
 const ORB_FRAME_COUNT = 8;
 
-let ORB_FRAME_SIZE = 128;      // ✔ cada cuadro es 128x128 (lo ajustaremos al cargar)
-const ORB_DRAW_SIZE = 9;      // tamaño dentro del juego
+let ORB_FRAME_SIZE = 128;    // valor por defecto
+const ORB_DRAW_SIZE  = 18;   // tamaño en el juego
 
 // 🔥 variables de animación
 let orbAnimTime = 0;
-let orbFrame = 0;
+let orbFrame    = 0;
 
 // --------- SPRITES DE THUNDER (UN PNG POR ESTADO) ---------
-const SPRITE_DRAW_WIDTH = 26;   // tamaño final dentro del juego
+const SPRITE_DRAW_WIDTH  = 26;
 const SPRITE_DRAW_HEIGHT = 36;
 
 const thunderImgs = {
-  idle: new Image(),
+  idle:      new Image(),
   jumpRight: new Image(),
-  jumpLeft: new Image(),
-  fall: new Image()
+  jumpLeft:  new Image(),
+  fall:      new Image()
 };
 
-// Rutas de los sprites de Thunder
 const thunderPaths = {
-  idle: "thunder-idle.png",
+  idle:      "thunder-idle.png",
   jumpRight: "thunder-jump_right.png",
-  jumpLeft: "thunder_jump_left.png",
-  fall: "thunder_fall.png"
+  jumpLeft:  "thunder_jump_left.png",
+  fall:      "thunder_fall.png"
 };
 
-// ** NUEVA FUNCIÓN DE PRECARGA **
+// ---------- PRECARGA ----------
 async function preloadAssets() {
   const allImages = [];
 
   const loadImage = (img, path) => new Promise((resolve) => {
     img.onload = () => resolve();
     img.onerror = () => {
-      console.error(`Error al cargar: ${path}`);
+      console.error("Error al cargar:", path);
       resolve();
     };
     img.src = path;
@@ -213,38 +207,35 @@ async function preloadAssets() {
   // Sprite sheet del orbe
   allImages.push(loadImage(orbImg, orbPath));
 
-// Moneda Thunder Coin
-allImages.push(loadImage(coinImg, coinPath));
-
-  // Espera a todas
+  // Espera a todo
   await Promise.all(allImages);
   console.log("Todos los recursos cargados. Iniciando juego.");
-}
 
-// Ajusta el tamaño de frame según la imagen real
-if (orbImg.naturalWidth) {
-  ORB_FRAME_SIZE = orbImg.naturalWidth / ORB_COLS;
+  // ✅ AHORA SÍ: ajustar tamaño del frame del orbe
+  if (orbImg.naturalWidth) {
+    ORB_FRAME_SIZE = orbImg.naturalWidth / ORB_COLS;
+  }
 }
 
 // -------------------------------------------------------------------
-// RESTO DEL CÓDIGO PERMANECE IGUAL (A PARTIR DE canvas / ctx)
+//  A PARTIR DE AQUÍ ES TU LÓGICA DE JUEGO
 // -------------------------------------------------------------------
-    const canvas = document.getElementById("game");
-    const ctx = canvas.getContext("2d");
+const canvas = document.getElementById("game");
+const ctx     = canvas.getContext("2d");
 
-    const hudBottom = document.getElementById("hudBottom");
-    const hudScore  = document.getElementById("hudScore");
-    const hudZone   = document.getElementById("hudZone");
-    const hudCoins  = document.getElementById("hudCoins");
+const hudBottom = document.getElementById("hudBottom");
+const hudScore  = document.getElementById("hudScore");
+const hudZone   = document.getElementById("hudZone");
 
-    // Resolución lógica del juego
-    const VW = 180;
-    const VH = 320;
+// Resolución lógica del juego
+const VW = 180;
+const VH = 320;
 
-    // Resolución física x2 para pantallas retina (360x640)
-    canvas.width  = VW * 2;
-    canvas.height = VH * 2;
-    ctx.scale(2, 2);
+// Resolución física x2 para pantallas retina (360x640)
+canvas.width  = VW * 2;
+canvas.height = VH * 2;
+ctx.scale(2, 2);
+
 function drawThunder(ctx, x, y, state) {
   let img = thunderImgs.idle;
 
@@ -252,8 +243,6 @@ function drawThunder(ctx, x, y, state) {
   else if (state === "jump-left")  img = thunderImgs.jumpLeft;
   else if (state === "fall")       img = thunderImgs.fall;
 
-  // Si aún no cargó la imagen, evitamos dibujar basura
-  // (Aunque con la precarga, esto ya no debería pasar)
   if (!img.complete) return;
 
   ctx.drawImage(
@@ -265,793 +254,151 @@ function drawThunder(ctx, x, y, state) {
   );
 }
 
+let lastTime   = 0;
+let leftHeld   = false;
+let rightHeld  = false;
+let bestHeight = 0;
 
+const world = {
+  gravity: 0.4,
+  baseJumpVel: -8.5,
+  maxVX: 2.4,
+  friction: 0.9,
+  scrollY: 0,
+  heightMeters: 0,
+  zoneName: "Jardín",
+  controlsInverted: false,
+  invertTimer: 0,
+  jumpBoostTimer: 0,
+  jumpBoostMultiplier: 1.0
+};
 
-    let lastTime = 0;
-    let leftHeld = false;
-    let rightHeld = false;
-    let bestHeight = 0;
-
-    const world = {
-      gravity: 0.4,
-      baseJumpVel: -8.5,
-      maxVX: 2.4,
-      friction: 0.9,
-      scrollY: 0,
-      heightMeters: 0,
-      zoneName: "Jardín",
-      controlsInverted: false,
-      invertTimer: 0,
-      jumpBoostTimer: 0,
-      jumpBoostMultiplier: 1.0
-    };
-
-    function currentJumpVel() {
-      return world.baseJumpVel * (world.jumpBoostMultiplier || 1);
-    }
-
-    const player = {
-      x: VW / 2,
-      y: VH - 40,
-      vx: 0,
-      vy: 0,
-      r: 7,
-      alive: true
-    };
-
-    const platforms = [];
-    const PLATFORM_WIDTH = 40;
-    const PLATFORM_HEIGHT = 6;
-    const PLATFORM_GAP_MIN = 18;
-    const PLATFORM_GAP_MAX = 28;
-
-    const meteorites = [];
-    const blackHoles = [];
-    let meteorTimer = 0;
-    let blackHoleTimer = 0;
-
-    let powerUps = [];
-
-    function getZone(heightM) {
-      if (heightM < 150) {
-        return { key: "garden", name: "Jardín",
-          top: "#19143f", mid: "#182b57", bottom: "#0f4a3a", stars: 25 };
-      } else if (heightM < 900) {
-        return { key: "sky", name: "Cielo",
-          top: "#203a7a", mid: "#246db0", bottom: "#63b3ff", stars: 36 };
-      } else if (heightM < 3500) {
-        return { key: "solar", name: "Sistema Solar",
-          top: "#10152f", mid: "#171f4f", bottom: "#243a6b", stars: 60 };
-      } else if (heightM < 12000) {
-        return { key: "milkyway", name: "Vía Láctea",
-          top: "#050313", mid: "#151437", bottom: "#203b6a", stars: 90 };
-      } else if (heightM < 40000) {
-        return { key: "virgo", name: "Supercúmulo de Virgo",
-          top: "#05020c", mid: "#24062e", bottom: "#3c1458", stars: 120 };
-      } else {
-        return { key: "horizon", name: "Horizonte Cósmico",
-          top: "#2b0538", mid: "#3b1374", bottom: "#ff0077", stars: 140 };
-      }
-    }
-
-    function createPlatform(x, y) {
-      const plat = {
-        x,
-        y,
-        w: PLATFORM_WIDTH,
-        h: PLATFORM_HEIGHT,
-        vx: 0,
-        rangeMin: x,
-        rangeMax: x + PLATFORM_WIDTH
-      };
-
-      const zone = getZone(world.heightMeters);
-
-      // Plataformas móviles en zonas altas
-      if ((zone.key === "milkyway" || zone.key === "virgo" || zone.key === "horizon") &&
-          Math.random() < 0.35) {
-        plat.vx = (Math.random() < 0.5 ? -0.4 : 0.4);
-        plat.rangeMin = 10;
-        plat.rangeMax = VW - PLATFORM_WIDTH - 10;
-      }
-
-      // Probabilidad de ORBE eléctrico
-      if (zone.key !== "garden" && Math.random() < 0.07) {
-        powerUps.push({
-          x: x + PLATFORM_WIDTH / 2,
-          y: y - 10,
-          r: ORB_DRAW_SIZE * 0.6, // radio de colisión aproximado
-          taken: false
-        });
-      }
-  // Probabilidad de moneda en la plataforma
-    if (Math.random() < 0.25) { // 25% de probabilidad
-    coins.push({
-    x: x + PLATFORM_WIDTH / 2,
-    y: y - 8,
-    r: 6,          // radio de colisión aproximado
-    taken: false
-  });
+function currentJumpVel() {
+  return world.baseJumpVel * (world.jumpBoostMultiplier || 1);
 }
-      return plat;
-    }
 
-    function initPlatforms() {
-      platforms.length = 0;
-      powerUps = [];
-      let y = VH - 20;
-      platforms.push(createPlatform(VW / 2 - PLATFORM_WIDTH / 2, y));
-      y -= 25;
-      while (y > -VH) {
-        const x = 10 + Math.random() * (VW - PLATFORM_WIDTH - 20);
-        platforms.push(createPlatform(x, y));
-        y -= PLATFORM_GAP_MIN + Math.random() * (PLATFORM_GAP_MAX - PLATFORM_GAP_MIN);
-      }
-    }
+const player = {
+  x: VW / 2,
+  y: VH - 40,
+  vx: 0,
+  vy: 0,
+  r: 7,
+  alive: true
+};
 
-    function resetGame() {
-      world.scrollY = 0;
-      world.heightMeters = 0;
-      world.zoneName = "Jardín";
-      world.controlsInverted = false;
-      world.invertTimer = 0;
-      world.jumpBoostTimer = 0;
-      world.jumpBoostMultiplier = 1.0;
+const platforms = [];
+const PLATFORM_WIDTH     = 40;
+const PLATFORM_HEIGHT    = 6;
+const PLATFORM_GAP_MIN   = 18;
+const PLATFORM_GAP_MAX   = 28;
 
-      meteorites.length = 0;
-      blackHoles.length = 0;
-      meteorTimer = 0;
-      blackHoleTimer = 0;
-      powerUps = [];
-      coins = [];
-      coinCount = 0;
-      if (hudCoins) hudCoins.textContent = coinCount;
+const meteorites = [];
+const blackHoles = [];
+let meteorTimer  = 0;
+let blackHoleTimer = 0;
 
-      player.x = VW / 2;
-      player.y = VH - 40;
-      player.vx = 0;
-      player.vy = -5;
-      player.alive = true;
+let powerUps = [];
 
-      initPlatforms();
-    }
-
-    function handleKeyboard(e, isDown) {
-      if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
-        leftHeld = isDown;
-        e.preventDefault();
-      } else if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
-        rightHeld = isDown;
-        e.preventDefault();
-      } else if (e.key === " " && !isDown && !player.alive) {
-        resetGame();
-      }
-    }
-
-    document.addEventListener("keydown", (e) => handleKeyboard(e, true));
-    document.addEventListener("keyup", (e) => handleKeyboard(e, false));
-
-    function updateTouch(e) {
-      e.preventDefault();
-      if (e.touches.length === 0) {
-        leftHeld = rightHeld = false;
-        return;
-      }
-      let anyLeft = false;
-      let anyRight = false;
-      const rect = canvas.getBoundingClientRect();
-      for (const t of e.touches) {
-        const x = t.clientX - rect.left;
-        if (x < rect.width * 0.5) anyLeft = true;
-        else anyRight = true;
-      }
-      leftHeld = anyLeft;
-      rightHeld = anyRight;
-    }
-
-    canvas.addEventListener("touchstart", updateTouch, { passive: false });
-    canvas.addEventListener("touchmove", updateTouch, { passive: false });
-    canvas.addEventListener("touchend", updateTouch, { passive: false });
-    canvas.addEventListener("touchcancel", updateTouch, { passive: false });
-
-    canvas.addEventListener("mousedown", (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      if (x < rect.width * 0.5) leftHeld = true;
-      else rightHeld = true;
-    });
-    window.addEventListener("mouseup", () => {
-      leftHeld = rightHeld = false;
-    });
-
-    // --------- HAZARDS ---------
-    function spawnMeteorite() {
-      const side = Math.random() < 0.5 ? "left" : "right";
-      const y = 20 + Math.random() * (VH * 0.6);
-      const speed = 0.8 + Math.random() * 0.7;
-      const vy = 0.08 + Math.random() * 0.18;
-      const x = side === "left" ? -20 : VW + 20;
-      const vx = side === "left" ? speed : -speed;
-      meteorites.push({ x, y, vx, vy, r: 4 + Math.random() * 3 });
-    }
-
-    function spawnBlackHole() {
-      const x = 20 + Math.random() * (VW - 40);
-      const y = -20 - Math.random() * 60;
-      blackHoles.push({
-        x,
-        y,
-        r: 7 + Math.random() * 4,
-        strength: 0.12 + Math.random() * 0.08
-      });
-    }
-
-    function updateHazards(dt, zone) {
-      meteorTimer += dt;
-      blackHoleTimer += dt;
-
-      if (zone.key === "solar") {
-        const minM = 2;
-        const maxM = 4;
-
-        if (meteorites.length < minM && meteorTimer > 0.4) {
-          spawnMeteorite();
-          meteorTimer = 0;
-        } else if (
-          meteorites.length < maxM &&
-          meteorTimer > 1.8 + Math.random() * 0.8
-        ) {
-          spawnMeteorite();
-          meteorTimer = 0;
-        }
-      } else {
-        meteorTimer = 0;
-      }
-
-      if (zone.key === "milkyway") {
-        if (blackHoleTimer > 4 + Math.random() * 3) {
-          spawnBlackHole();
-          blackHoleTimer = 0;
-        }
-      } else {
-        blackHoleTimer = 0;
-      }
-
-      for (let i = meteorites.length - 1; i >= 0; i--) {
-        const m = meteorites[i];
-        m.x += m.vx * dt * 60;
-        m.y += m.vy * dt * 60;
-        if (m.y > VH + 40 || m.y < -60 || m.x < -60 || m.x > VW + 60) {
-          meteorites.splice(i, 1);
-        }
-      }
-
-      for (let i = blackHoles.length - 1; i >= 0; i--) {
-        const b = blackHoles[i];
-        b.y += 0.05 * dt * 60;
-        if (b.y > VH + 80) blackHoles.splice(i, 1);
-      }
-
-      if (zone.key === "milkyway" || zone.key === "virgo" || zone.key === "horizon") {
-        for (const b of blackHoles) {
-          const dx = b.x - player.x;
-          const dy = b.y - player.y;
-          const distSq = dx * dx + dy * dy;
-          const maxInfluence = 70;
-          if (distSq < maxInfluence * maxInfluence) {
-            const dist = Math.sqrt(distSq) + 0.001;
-            const pull = b.strength * (1 - dist / maxInfluence);
-            player.vx += (dx / dist) * pull * dt * 60;
-          }
-        }
-      }
-    }
-
-    function applyHazardCollisions() {
-      for (const m of meteorites) {
-        const dx = m.x - player.x;
-        const dy = m.y - player.y;
-        const rr = m.r + player.r * 0.7;
-        if (dx * dx + dy * dy < rr * rr) {
-          player.alive = false;
-          return;
-        }
-      }
-
-      for (const b of blackHoles) {
-        const dx = b.x - player.x;
-        const dy = b.y - player.y;
-        const rr = b.r + player.r * 0.6;
-        if (dx * dx + dy * dy < rr * rr) {
-          player.alive = false;
-          return;
-        }
-      }
-    }
-
-    function update(dt) {
-      if (!player.alive) return;
-
-      const zone = getZone(world.heightMeters);
-      // Avanza la animación del orbe
-      orbAnimTime += dt;
-      orbFrame = Math.floor(orbAnimTime * 14) % ORB_FRAME_COUNT; // 14 fps suaves
-    for (const c of coins) c.y += diff;
-
-    coins = coins.filter((c) => c.y < VH + 40 && !c.taken);
-
-      // Temporizador de boost (por si lo quieres usar después)
-      if (world.jumpBoostTimer > 0) {
-        world.jumpBoostTimer -= dt;
-        if (world.jumpBoostTimer <= 0) {
-          world.jumpBoostTimer = 0;
-          world.jumpBoostMultiplier = 1.0;
-        }
-      }
-
-      // Controles invertidos en Horizonte
-      if (zone.key === "horizon") {
-        if (!world.controlsInverted && Math.random() < 0.003 * dt * 60) {
-          world.controlsInverted = true;
-          world.invertTimer = 2.5;
-        }
-      }
-      if (world.controlsInverted) {
-        world.invertTimer -= dt;
-        if (world.invertTimer <= 0) world.controlsInverted = false;
-      }
-
-      let moveLeft = leftHeld;
-      let moveRight = rightHeld;
-      if (world.controlsInverted) {
-        const tmp = moveLeft;
-        moveLeft = moveRight;
-        moveRight = tmp;
-      }
-
-      const accel = 0.26;
-      if (moveLeft && !moveRight) {
-        player.vx -= accel * dt * 60;
-      } else if (moveRight && !moveLeft) {
-        player.vx += accel * dt * 60;
-      } else {
-        const frictionPerFrame = world.friction;
-        const friction = Math.pow(frictionPerFrame, dt * 60);
-        player.vx *= friction;
-      }
-
-      if (player.vx > world.maxVX) player.vx = world.maxVX;
-      if (player.vx < -world.maxVX) player.vx = -world.maxVX;
-
-      player.x += player.vx * dt * 60;
-
-      if (player.x < -player.r) player.x = VW + player.r;
-      if (player.x > VW + player.r) player.x = -player.r;
-
-      player.vy += world.gravity * dt * 60;
-      player.y += player.vy * dt * 60;
-
-      for (const p of platforms) {
-        if (p.vx !== 0) {
-          p.x += p.vx * dt * 60;
-          if (p.x < p.rangeMin || p.x + p.w > p.rangeMax) {
-            p.vx *= -1;
-            if (p.x < p.rangeMin) p.x = p.rangeMin;
-            if (p.x + p.w > p.rangeMax) p.x = p.rangeMax - p.w;
-          }
-        }
-      }
-
-      // Colisión con plataformas (salto)
-      if (player.vy > 0) {
-        const bottom = player.y + player.r;
-        for (const p of platforms) {
-          if (
-            bottom > p.y &&
-            bottom < p.y + p.h + player.vy * dt * 60 + 1 &&
-            player.x > p.x - player.r &&
-            player.x < p.x + p.w + player.r
-          ) {
-            player.y = p.y - player.r;
-            player.vy = currentJumpVel();
-
-            // ✅ GASTA EL BOOST EN ESTE SALTO
-            if (world.jumpBoostMultiplier > 1.0) {
-              world.jumpBoostMultiplier = 1.0;
-              world.jumpBoostTimer = 0;
-            }
-          }
-        }
-      }
-
-      const camY = VH * 0.4;
-      if (player.y < camY) {
-        const diff = camY - player.y;
-        player.y += diff;
-        world.scrollY += diff;
-        for (const p of platforms) p.y += diff;
-        for (const m of meteorites) m.y += diff;
-        for (const b of blackHoles) b.y += diff;
-        for (const pu of powerUps) pu.y += diff;
-
-        for (let i = platforms.length - 1; i >= 0; i--) {
-          if (platforms[i].y > VH + 20) platforms.splice(i, 1);
-        }
-        powerUps = powerUps.filter((pu) => pu.y < VH + 40 && !pu.taken);
-
-        let highestY = Infinity;
-        for (const p of platforms) if (p.y < highestY) highestY = p.y;
-
-        while (highestY > -VH) {
-          const gap = PLATFORM_GAP_MIN + Math.random() *
-                      (PLATFORM_GAP_MAX - PLATFORM_GAP_MIN);
-          highestY -= gap;
-          const x = 10 + Math.random() * (VW - PLATFORM_WIDTH - 20);
-          platforms.push(createPlatform(x, highestY));
-        }
-      }
-
-      // Colisión con flechas (power-ups)
-      for (const pu of powerUps) {
-        if (pu.taken) continue;
-        const dx = pu.x - player.x;
-        const dy = pu.y - player.y;
-        const rr = pu.r + player.r;
-        if (dx * dx + dy * dy < rr * rr) {
-          pu.taken = true;
-// Colisión con monedas
-for (const c of coins) {
-  if (c.taken) continue;
-  const dx = c.x - player.x;
-  const dy = c.y - player.y;
-  const rr = c.r + player.r * 0.7;
-  if (dx * dx + dy * dy < rr * rr) {
-    c.taken = true;
-    coinCount++;
-    if (hudCoins) hudCoins.textContent = coinCount;
-  }
-}
-coins = coins.filter((c) => !c.taken && c.y < VH + 40);
-          // Acumula boost hasta x3.5
-          if (world.jumpBoostTimer > 0 && world.jumpBoostMultiplier > 1.0) {
-            world.jumpBoostMultiplier *= 1.5;
-          } else {
-            world.jumpBoostMultiplier = 1.5;
-          }
-          if (world.jumpBoostMultiplier > 3.5) {
-            world.jumpBoostMultiplier = 3.5;
-          }
-
-          world.jumpBoostTimer = 6; // por si quieres usar UI de tiempo
-          // pequeño impulso inmediato al tomar la flecha
-          player.vy = currentJumpVel() * 1.1;
-        }
-      }
-      powerUps = powerUps.filter((pu) => !pu.taken && pu.y < VH + 40);
-
-      if (player.y - player.r > VH + 10) {
-        player.alive = false;
-        if (world.scrollY > bestHeight) bestHeight = world.scrollY;
-      }
-
-      const heightMeters = Math.floor(world.scrollY / 10);
-      world.heightMeters = heightMeters;
-      const zoneNow = getZone(heightMeters);
-      world.zoneName = zoneNow.name;
-
-      updateHazards(dt, zoneNow);
-      applyHazardCollisions();
-
-      // HUD inferior: solo mejor + mensaje de reinicio
-      const bestMeters = Math.floor(bestHeight / 10);
-      hudBottom.textContent =
-        `Mejor: ${bestMeters} m` +
-        (!player.alive ? " · Toca o presiona ESPACIO para reiniciar" : "");
-
-      // HUD superior (como en Doodle Jump / Flappy)
-      hudScore.textContent = `${heightMeters} m`;
-
-      let zoneText = `THUNDER ASCENSION — Zona: ${zoneNow.name}`;
-      if (world.controlsInverted) zoneText += " · Controles invertidos";
-      if (world.jumpBoostMultiplier > 1.01) {
-        zoneText += ` · Salto x${world.jumpBoostMultiplier.toFixed(1)}`;
-      }
-      hudZone.textContent = zoneText;
-    }
-
-    // ---------- DIBUJO ----------
-function drawBackground() {
-  const h = world.heightMeters;
-  const zone = getZone(h);
-
-  // Esperamos que la imagen esté lista; si no, usamos el gradiente
-  const img = bgImgs[zone.key];
-  if (img && img.complete && img.naturalWidth) {
-    // Estilo "background-size: cover"
-    const iw = img.naturalWidth;
-    const ih = img.naturalHeight;
-    const canvasRatio = VW / VH;
-    const imgRatio = iw / ih;
-
-    let drawW, drawH;
-    if (imgRatio > canvasRatio) {
-      drawH = VH;
-      drawW = (VH * imgRatio);
-    } else {
-      drawW = VW;
-      drawH = (VW / imgRatio);
-    }
-
-    const dx = (VW - drawW) / 2;
-    const dy = (VH - drawH) / 2;
-    ctx.drawImage(img, dx, dy, drawW, drawH);
+function getZone(heightM) {
+  if (heightM < 150) {
+    return { key: "garden", name: "Jardín",
+      top: "#19143f", mid: "#182b57", bottom: "#0f4a3a", stars: 25 };
+  } else if (heightM < 900) {
+    return { key: "sky", name: "Cielo",
+      top: "#203a7a", mid: "#246db0", bottom: "#63b3ff", stars: 36 };
+  } else if (heightM < 3500) {
+    return { key: "solar", name: "Sistema Solar",
+      top: "#10152f", mid: "#171f4f", bottom: "#243a6b", stars: 60 };
+  } else if (heightM < 12000) {
+    return { key: "milkyway", name: "Vía Láctea",
+      top: "#050313", mid: "#151437", bottom: "#203b6a", stars: 90 };
+  } else if (heightM < 40000) {
+    return { key: "virgo", name: "Supercúmulo de Virgo",
+      top: "#05020c", mid: "#24062e", bottom: "#3c1458", stars: 120 };
   } else {
-    // Fallback: usa el gradiente para evitar el tirón
-    const grad = ctx.createLinearGradient(0, 0, 0, VH);
-    grad.addColorStop(0, zone.top);
-    grad.addColorStop(0.5, zone.mid);
-    grad.addColorStop(1, zone.bottom);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, VW, VH);
-  }
-
-  // Elipses y estrellas como antes...
-  ctx.fillStyle = "rgba(255,255,255,0.03)";
-  ctx.beginPath();
-  ctx.ellipse(VW * 0.5, VH * 0.22, VW * 0.7, VH * 0.3, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(VW * 0.5, VH * 0.75, VW * 0.9, VH * 0.55, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  const starsCount = zone.stars;
-  ctx.fillStyle = "rgba(255,255,255,0.6)";
-  for (let i = 0; i < starsCount; i++) {
-    const x = (i * 17.13 + h * 0.7) % VW;
-    const y = ((i * 53.77 + h * 0.4) % VH);
-    const r = (i % 4) * 0.2 + 0.3;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
+    return { key: "horizon", name: "Horizonte Cósmico",
+      top: "#2b0538", mid: "#3b1374", bottom: "#ff0077", stars: 140 };
   }
 }
 
-function drawGround() {
-  const h = world.heightMeters;
-  let alpha = 1 - h / 160;
-  if (alpha <= 0) return;
-  if (alpha > 1) alpha = 1;
+function createPlatform(x, y) {
+  const plat = {
+    x,
+    y,
+    w: PLATFORM_WIDTH,
+    h: PLATFORM_HEIGHT,
+    vx: 0,
+    rangeMin: x,
+    rangeMax: x + PLATFORM_WIDTH
+  };
 
-  ctx.save();
-  ctx.globalAlpha = alpha;
+  const zone = getZone(world.heightMeters);
 
-  // Suelo verde (césped)
-  const groundH = 40;
-  const groundTop = VH - groundH;
-
-  const gradGrass = ctx.createLinearGradient(0, groundTop, 0, VH);
-  gradGrass.addColorStop(0, "#2c7a3f");
-  gradGrass.addColorStop(1, "#154d24");
-  ctx.fillStyle = gradGrass;
-  ctx.fillRect(0, groundTop, VW, groundH);
-
-  // Montículo suave
-  ctx.fillStyle = "rgba(0,0,0,0.2)";
-  ctx.beginPath();
-  ctx.ellipse(VW * 0.5, VH, VW * 0.7, groundH * 0.9, 0, Math.PI, 0, true);
-  ctx.fill();
-
-  // Pasto vertical
-  ctx.strokeStyle = "#3fe27b";
-  ctx.lineWidth = 1;
-  for (let x = 0; x < VW; x += 5) {
-    const len = 4 + Math.random() * 3;
-    ctx.beginPath();
-    ctx.moveTo(x, VH);
-    ctx.lineTo(x + (Math.random() - 0.5) * 2, VH - len);
-    ctx.stroke();
+  if ((zone.key === "milkyway" || zone.key === "virgo" || zone.key === "horizon") &&
+      Math.random() < 0.35) {
+    plat.vx = (Math.random() < 0.5 ? -0.4 : 0.4);
+    plat.rangeMin = 10;
+    plat.rangeMax = VW - PLATFORM_WIDTH - 10;
   }
 
-  // Pequeñas flores
-  const flowerColors = ["#ffb3d9", "#ffe58a", "#b0f5ff"];
-  for (let i = 0; i < 8; i++) {
-    const fx = 10 + Math.random() * (VW - 20);
-    const fy = groundTop + 5 + Math.random() * (groundH - 10);
-    const c = flowerColors[i % flowerColors.length];
-    ctx.fillStyle = c;
-    ctx.beginPath();
-    ctx.arc(fx, fy, 1.3, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.restore();
-}
-
-
-    function drawPlatforms() {
-      for (const p of platforms) {
-        ctx.fillStyle = "#2a1238";
-        ctx.fillRect(p.x, p.y + 2, p.w, p.h);
-
-        const grad = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.h);
-        grad.addColorStop(0, "#ff8cff");
-        grad.addColorStop(1, "#d350ff");
-        ctx.fillStyle = grad;
-        ctx.fillRect(p.x, p.y, p.w, p.h);
-      }
-    }
-
-    function drawHazards() {
-      for (const m of meteorites) {
-        ctx.save();
-        ctx.translate(m.x, m.y);
-        ctx.rotate(Math.atan2(m.vy, m.vx));
-        ctx.fillStyle = "#ffb46b";
-        ctx.beginPath();
-        ctx.ellipse(0, 0, m.r * 1.6, m.r, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "rgba(255,255,255,0.7)";
-        ctx.beginPath();
-        ctx.arc(-m.r * 0.3, -m.r * 0.3, m.r * 0.4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-
-      for (const b of blackHoles) {
-        const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r * 2.2);
-        g.addColorStop(0, "rgba(0,0,0,1)");
-        g.addColorStop(0.5, "rgba(40,0,60,0.9)");
-        g.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, b.r * 2.2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-function drawCoins() {
-  if (!coinImg.complete || !coinImg.naturalWidth) return;
-
-  const size = 10; // radio de dibujo lógico
-
-  for (const c of coins) {
-    if (c.taken) continue;
-
-    ctx.save();
-    ctx.translate(c.x, c.y);
-
-    // Glow suave amarillo
-    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 2.0);
-    glow.addColorStop(0, "rgba(255, 230, 120, 0.9)");
-    glow.addColorStop(1, "rgba(255, 230, 120, 0)");
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.arc(0, 0, size * 2.0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Moneda
-    ctx.drawImage(
-      coinImg,
-      -size, -size,
-      size * 2, size * 2
-    );
-
-    ctx.restore();
-  }
-}
-     // --------- ORBES POWER-UP (SPRITE SHEET) ---------
-// --------- ORBES POWER-UP (SPRITE SHEET) ---------
-function drawPowerUps() {
-  if (!orbImg.complete || !orbImg.naturalWidth) return;
-
-  const frameSize = ORB_FRAME_SIZE;
-  const col = orbFrame % ORB_COLS;     // ✔ solo columnas, porque solo hay 1 fila
-  const row = 0;                       // ✔ siempre en fila 0
-  const sx = col * frameSize;
-  const sy = 0;
-
-  for (const pu of powerUps) {
-    ctx.save();
-    ctx.translate(pu.x, pu.y);
-
-    // Glow suave
-    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, ORB_DRAW_SIZE * 1.4);
-    glow.addColorStop(0, "rgba(255,255,180,0.9)");
-    glow.addColorStop(1, "rgba(255,255,180,0)");
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.arc(0, 0, ORB_DRAW_SIZE * 1.4, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Dibujo real del sprite
-    const drawSize = ORB_DRAW_SIZE * 1.3;
-    ctx.drawImage(
-      orbImg,
-      sx, sy,
-      frameSize, frameSize,
-      -drawSize / 2, -drawSize / 2,
-      drawSize, drawSize
-    );
-
-    ctx.restore();
-  }
-}
-
-
-    // --------- THUNDER (Jugador) CON SPRITE ---------
-    function drawPlayer() {
-      let state = "idle";
-
-      if (!player.alive) {
-        state = "fall";
-      } else if (player.vy < -0.5) {
-        // subiendo: usa la dirección horizontal para escoger sprite
-        state = player.vx >= 0 ? "jump-right" : "jump-left";
-      } else if (player.vy > 1) {
-        // cayendo
-        state = "fall";
-      } else {
-        // casi quieto / en plataforma
-        state = "idle";
-      }
-
-      // si quieres mantener el glow cuando hay boost:
-      if (world.jumpBoostMultiplier > 1.01) {
-        ctx.save();
-        ctx.globalAlpha = 0.7;
-        const g = ctx.createRadialGradient(
-          player.x, player.y, 0,
-          player.x, player.y, 30
-        );
-        g.addColorStop(0, "rgba(0,255,170,0.5)");
-        g.addColorStop(1, "rgba(0,255,170,0)");
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(player.x, player.y, 30, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-
-      drawThunder(ctx, player.x, player.y, state);
-    }
-
-
-    if (!CanvasRenderingContext2D.prototype.roundRect) {
-      CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
-        const rr = Math.min(r, w / 2, h / 2);
-        this.beginPath();
-        this.moveTo(x + rr, y);
-        this.arcTo(x + w, y, x + w, y + h, rr);
-        this.arcTo(x + w, y + h, x, y + h, rr);
-        this.arcTo(x, y + h, x, y, rr);
-        this.arcTo(x, y, x + w, y, rr);
-        this.closePath();
-        return this;
-      };
-    }
-
-    function gameLoop(timestamp) {
-      const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
-      lastTime = timestamp;
-
-      update(dt);
-
-      ctx.clearRect(0, 0, VW, VH);
-      drawBackground();
-      
-      drawPlatforms();
-      drawCoins();  
-      drawHazards();
-      drawPowerUps();
-      drawPlayer();
-
-      requestAnimationFrame(gameLoop);
-    }
-
-    // ** NUEVO INICIO DEL JUEGO **
-    preloadAssets().then(() => {
-        resetGame();
-        requestAnimationFrame(gameLoop);
+  if (zone.key !== "garden" && Math.random() < 0.07) {
+    powerUps.push({
+      x: x + PLATFORM_WIDTH / 2,
+      y: y - 10,
+      r: ORB_DRAW_SIZE * 0.6,
+      taken: false
     });
-  </script>
+  }
+
+  return plat;
+}
+
+function initPlatforms() {
+  platforms.length = 0;
+  powerUps = [];
+  let y = VH - 20;
+  platforms.push(createPlatform(VW / 2 - PLATFORM_WIDTH / 2, y));
+  y -= 25;
+  while (y > -VH) {
+    const x = 10 + Math.random() * (VW - PLATFORM_WIDTH - 20);
+    platforms.push(createPlatform(x, y));
+    y -= PLATFORM_GAP_MIN + Math.random() * (PLATFORM_GAP_MAX - PLATFORM_GAP_MIN);
+  }
+}
+
+function resetGame() {
+  world.scrollY = 0;
+  world.heightMeters = 0;
+  world.zoneName = "Jardín";
+  world.controlsInverted = false;
+  world.invertTimer = 0;
+  world.jumpBoostTimer = 0;
+  world.jumpBoostMultiplier = 1.0;
+
+  meteorites.length = 0;
+  blackHoles.length = 0;
+  meteorTimer = 0;
+  blackHoleTimer = 0;
+  powerUps = [];
+
+  player.x = VW / 2;
+  player.y = VH - 40;
+  player.vx = 0;
+  player.vy = -5;
+  player.alive = true;
+
+  initPlatforms();
+}
+
+// ………… (todo el resto de tu código: controles, hazards, update, drawBackground,
+// drawHazards, drawPowerUps, drawPlayer, roundRect, gameLoop) …………
+// NO HACE FALTA TOCARLO, SOLO CÓPIALO IGUAL QUE LO TIENES AHORA
+
+// ---------- INICIO DEL JUEGO ----------
+preloadAssets().then(() => {
+  resetGame();
+  requestAnimationFrame(gameLoop);
+});
+</script>
  </body>
 </html>
