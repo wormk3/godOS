@@ -117,7 +117,7 @@
     </div>
   </div>
 
-  <canvas id="game"></canvas>
+  < id="game"></>
 
   <div class="hint">PC: Flechas ← → · Móvil: toca izquierda/derecha</div>
   <div class="hud-bottom" id="hudBottom">Mejor: 0 m</div>
@@ -198,8 +198,8 @@ async function preloadAssets() {
 // ======================================================
 //                 VARIABLES DEL JUEGO
 // ======================================================
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+const  = document.getElementById("game");
+const ctx = .getContext("2d");
 
 const VW = 180;
 const VH = 320;
@@ -304,6 +304,42 @@ function handleKeyboard(e, d) {
 }
 document.addEventListener("keydown", e => handleKeyboard(e,true));
 document.addEventListener("keyup",   e => handleKeyboard(e,false));
+// ---------- CONTROLES TÁCTILES (iPhone / Android) ----------
+function handleTouch(e) {
+  e.preventDefault();
+
+  if (e.touches.length === 0) {
+    leftHeld = false;
+    rightHeld = false;
+    return;
+  }
+
+  let anyLeft  = false;
+  let anyRight = false;
+
+  // Siempre usamos la posición del canvas para calcular izquierda/derecha
+  const rect = canvas.getBoundingClientRect();
+
+  for (const t of e.touches) {
+    const x = t.clientX - rect.left;
+    if (x < rect.width * 0.5) anyLeft  = true;
+    else                      anyRight = true;
+  }
+
+  leftHeld  = anyLeft;
+  rightHeld = anyRight;
+}
+
+function clearTouch() {
+  leftHeld = false;
+  rightHeld = false;
+}
+
+// Escuchamos los toques EN TODO EL DOCUMENTO para que iPhone no falle
+document.addEventListener("touchstart", handleTouch, { passive: false });
+document.addEventListener("touchmove",  handleTouch, { passive: false });
+document.addEventListener("touchend",   clearTouch,  { passive: false });
+document.addEventListener("touchcancel",clearTouch,  { passive: false });
 
 // ======================================================
 //                   DIBUJO
