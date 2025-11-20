@@ -173,7 +173,7 @@ const bgPaths = {
 };
 
 // --------- ORBE POWER-UP (SPRITE SHEET) ---------
-const orbImg = new Image();
+orbImg = new Image();
 const orbPath = "orb-electric.png";
 
 const ORB_COLS = 8;
@@ -243,8 +243,8 @@ async function preloadAssets() {
 const canvas = document.getElementById("game");
 const ctx    = canvas.getContext("2d");
 
-const VW = 180;
-const VH = 320;
+const VW = 240;
+const VH = 420;
 
 canvas.width  = VW * 2;
 canvas.height = VH * 2;
@@ -655,9 +655,9 @@ function update(dt) {
     platforms = platforms.filter(p => p.y < VH + 20 && !p.broken);
 
     // más plataformas, más juntas
-    while (platforms.length < 24) {
+    while (platforms.length < 32) {
       const topY = Math.min(...platforms.map(pl => pl.y));
-      const newY = topY - (12 + Math.random()*8);
+      const newY = topY - (10 + Math.random()*8);
       const newX = 10 + Math.random()*(VW-60);
       platforms.push(createPlatform(newX, newY));
     }
