@@ -96,9 +96,9 @@
     }
 
     .coin-icon {
-      width: 18px;
-      height: 18px;
-      image-rendering: pixelated;
+      width: 20px;
+      height: 20px;
+      image-rendering: auto;   /* que se vea suave, no pixelado */
     }
 
     /* HUD INFERIOR */
@@ -138,8 +138,8 @@
     </div>
 
     <div class="hud-coins">
-      <!-- OJO: respeta mayúsculas como en el archivo -->
-      <img src="thunder-coin.PNG" class="coin-icon" alt="coin" />
+      <!-- Icono HUD: moneda fija -->
+      <img src="thunder-coin-hud.png" class="coin-icon" alt="coin" />
       <span id="hudCoins">0</span>
     </div>
   </div>
@@ -185,7 +185,7 @@ let orbFrame = 0;
 
 // --------- THUNDER COIN (SPRITE SHEET 9 FRAMES) ---------
 const coinImg = new Image();
-const coinPath = "thunder-coin.PNG";   // sprite sheet que hiciste
+const coinPath = "thunder-coin.PNG";   // sprite sheet de rotación
 
 const COIN_COLS = 9;
 let COIN_FRAME_SIZE = 64;              // se ajusta al cargar
@@ -222,7 +222,7 @@ async function preloadAssets() {
 
   for (let k in bgPaths)      tasks.push(load(bgImgs[k], bgPaths[k]));
   for (let k in thunderPaths) tasks.push(load(thunderImgs[k], thunderPaths[k]));
-  tasks.push(load(orbImg, orbPath));
+  tasks.push(load(orbImg,  orbPath));
   tasks.push(load(coinImg, coinPath));
 
   await Promise.all(tasks);
@@ -260,6 +260,7 @@ let lastTime   = 0;
 let leftHeld   = false;
 let rightHeld  = false;
 let bestHeight = 0;
+let orbBoostTimer = 0;  // tiempo restante del efecto del orbe
 
 const world = {
   gravity: 0.4,
@@ -287,12 +288,12 @@ let coinItems = [];   // monedas recogibles
 //                FUNCIONES DE ZONAS
 // ======================================================
 function getZone(height) {
-  if (height < 150)   return { key:"garden", name:"Jardín",          top:"#19143f", mid:"#182b57", bottom:"#0f4a3a", stars:25 };
-  if (height < 900)   return { key:"sky",    name:"Cielo",           top:"#203a7a", mid:"#246db0", bottom:"#63b3ff", stars:36 };
-  if (height < 3500)  return { key:"solar",  name:"Sistema Solar",   top:"#10152f", mid:"#171f4f", bottom:"#243a6b", stars:60 };
-  if (height < 12000) return { key:"milkyway", name:"Vía Láctea",    top:"#050313", mid:"#151437", bottom:"#203b6a", stars:90 };
-  if (height < 40000) return { key:"virgo",  name:"Supercúmulo de Virgo", top:"#05020c", mid:"#24062e", bottom:"#3c1458", stars:120 };
-  return { key:"horizon", name:"Horizonte Cósmico", top:"#2b0538", mid:"#3b1374", bottom:"#ff0077", stars:140 };
+  if (height < 150)   return { key:"garden",   name:"Jardín",                top:"#19143f", mid:"#182b57", bottom:"#0f4a3a", stars:25 };
+  if (height < 900)   return { key:"sky",      name:"Cielo",                 top:"#203a7a", mid:"#246db0", bottom:"#63b3ff", stars:36 };
+  if (height < 3500)  return { key:"solar",    name:"Sistema Solar",         top:"#10152f", mid:"#171f4f", bottom:"#243a6b", stars:60 };
+  if (height < 12000) return { key:"milkyway", name:"Vía Láctea",            top:"#050313", mid:"#151437", bottom:"#203b6a", stars:90 };
+  if (height < 40000) return { key:"virgo",    name:"Supercúmulo de Virgo",  top:"#05020c", mid:"#24062e", bottom:"#3c1458", stars:120 };
+  return { key:"horizon", name:"Horizonte Cósmico",                          top:"#2b0538", mid:"#3b1374", bottom:"#ff0077", stars:140 };
 }
 
 // ======================================================
@@ -300,16 +301,15 @@ function getZone(height) {
 // ======================================================
 const PLATFORM_TYPES = {
   NORMAL: 'normal',
-  SMALL: 'small',
-  BREAK: 'break',
-  MOVE: 'move',
-  BOOST: 'boost'
+  SMALL:  'small',
+  BREAK:  'break',
+  MOVE:   'move',
+  BOOST:  'boost'
 };
 
 function createPlatform(x, y) {
   const difficulty = world.heightMeters;   // altura actual
   let type = PLATFORM_TYPES.NORMAL;
-
   const r = Math.random();
 
   // Elegimos tipo en función de la altura
@@ -338,13 +338,25 @@ function createPlatform(x, y) {
     coinItems.push({
       x: x + plat.w / 2,
       y: y - 12,
-      r: COIN_DRAW_SIZE * 0.2,
+      r: COIN_DRAW_SIZE * 0.3,
+      taken: false
+    });
+  }
+
+  // Orbes eléctricos — no aparecen en Jardín
+  const zone = getZone(world.heightMeters);
+  if (zone.key !== "garden" && Math.random() < 0.10) {
+    powerUps.push({
+      x: x + plat.w / 2,
+      y: y - 14,
+      r: ORB_DRAW_SIZE * 0.6,
       taken: false
     });
   }
 
   return plat;
 }
+
 function initPlatforms() {
   platforms = [];
   powerUps  = [];
@@ -353,8 +365,9 @@ function initPlatforms() {
   let y = VH - 20;
   platforms.push(createPlatform(VW/2 - 20, y));
 
+  // tramos iniciales más densos
   while (y > -VH) {
-    y -= 18 + Math.random()*10;
+    y -= 12 + Math.random()*8;
     const x = 10 + Math.random()*(VW-60);
     platforms.push(createPlatform(x, y));
   }
@@ -459,19 +472,15 @@ function drawPlatforms() {
     let bottomColor = "#d350ff";
 
     if (p.type === PLATFORM_TYPES.BREAK) {
-      // Naranjita (peligro)
       topColor    = "#ffb347";
       bottomColor = "#ff6b3d";
     } else if (p.type === PLATFORM_TYPES.MOVE) {
-      // Azul
       topColor    = "#8cd6ff";
       bottomColor = "#5075ff";
     } else if (p.type === PLATFORM_TYPES.BOOST) {
-      // Verde eléctrico (trampolín)
       topColor    = "#c7ff6b";
       bottomColor = "#5fd63a";
     } else if (p.type === PLATFORM_TYPES.SMALL) {
-      // Rosita pero más intenso
       topColor    = "#ff9cff";
       bottomColor = "#e040ff";
     }
@@ -482,7 +491,6 @@ function drawPlatforms() {
     ctx.fillStyle = g;
     ctx.fillRect(p.x, p.y, p.w, p.h);
 
-    // Opcional: rayas para las BREAK (para que se vean frágiles)
     if (p.type === PLATFORM_TYPES.BREAK) {
       ctx.strokeStyle = "rgba(80,0,0,0.6)";
       ctx.beginPath();
@@ -494,6 +502,7 @@ function drawPlatforms() {
     }
   }
 }
+
 function drawPowerUps() {
   if (!orbImg.complete || !orbImg.naturalWidth) return;
 
@@ -569,15 +578,19 @@ function drawThunder() {
 function update(dt) {
   if (!player.alive) return;
 
+  // Contador del efecto del orbe
+  if (orbBoostTimer > 0) {
+    orbBoostTimer -= dt;
+    if (orbBoostTimer < 0) orbBoostTimer = 0;
+  }
+
   // Mover plataformas móviles (MOVE) izquierda / derecha
   for (const p of platforms) {
     if (p.type === PLATFORM_TYPES.MOVE) {
       p.x += p.vx * dt * 60;
 
-      // Rebote en los bordes definidos
       if (p.x < p.rangeMin || p.x + p.w > p.rangeMax) {
         p.vx *= -1;
-        // corregimos para que no se salga
         if (p.x < p.rangeMin) p.x = p.rangeMin;
         if (p.x + p.w > p.rangeMax) p.x = p.rangeMax - p.w;
       }
@@ -600,7 +613,7 @@ function update(dt) {
   player.vy += world.gravity * dt * 60;
   player.y  += player.vy * dt * 60;
 
-    // colisión plataformas
+  // colisión plataformas
   if (player.vy > 0) {
     for (const p of platforms) {
       if (
@@ -638,10 +651,13 @@ function update(dt) {
     for (let pu of powerUps) pu.y += diff;
     for (let c of coinItems) c.y += diff;
 
-    platforms = platforms.filter(p => p.y < VH+20);
-    while (platforms.length < 20) {
+    // eliminamos las muy bajas y las BREAK rotas
+    platforms = platforms.filter(p => p.y < VH + 20 && !p.broken);
+
+    // más plataformas, más juntas
+    while (platforms.length < 24) {
       const topY = Math.min(...platforms.map(pl => pl.y));
-      const newY = topY - (18 + Math.random()*10);
+      const newY = topY - (12 + Math.random()*8);
       const newX = 10 + Math.random()*(VW-60);
       platforms.push(createPlatform(newX, newY));
     }
@@ -658,7 +674,12 @@ function update(dt) {
     const rr = pu.r + player.r;
     if (dx*dx + dy*dy < rr*rr) {
       pu.taken = true;
-      player.vy = world.baseJumpVel * 1.3;
+
+      // Orbe: súper salto vertical (mucho más que la plataforma verde)
+      player.vy = world.baseJumpVel * 3.2;
+
+      // efecto activo (no acumulable, solo se reinicia)
+      orbBoostTimer = 0.8;
     }
   }
 
@@ -722,6 +743,7 @@ function resetGame() {
   player.alive = true;
 
   coins = 0;
+  orbBoostTimer = 0;
   initPlatforms();
   hudBottom.textContent = `Mejor: ${Math.floor(bestHeight/10)} m`;
 }
