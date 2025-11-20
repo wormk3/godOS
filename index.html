@@ -307,7 +307,7 @@ const PLATFORM_TYPES = {
 };
 
 function createPlatform(x, y) {
-  const difficulty = world.heightMeters; // para escalar con altura
+  const difficulty = world.heightMeters;   // altura actual
   let type = PLATFORM_TYPES.NORMAL;
 
   const r = Math.random();
@@ -316,14 +316,14 @@ function createPlatform(x, y) {
   if (difficulty > 3000 && r < 0.15)       type = PLATFORM_TYPES.SMALL;
   else if (difficulty > 2000 && r < 0.10)  type = PLATFORM_TYPES.BREAK;
   else if (difficulty > 800  && r < 0.10)  type = PLATFORM_TYPES.MOVE;
-  else if (r < 0.05)                       type = PLATFORM_TYPES.BOOST; // trampolín
+  else if (r < 0.05)                       type = PLATFORM_TYPES.BOOST;
 
   const wBase = 40;
 
   const plat = {
     x,
     y,
-    w: type === PLATFORM_TYPES.SMALL ? 26 : wBase,
+    w: (type === PLATFORM_TYPES.SMALL ? 26 : wBase),
     h: 6,
     type,
     // solo las MOVE se mueven
@@ -333,12 +333,12 @@ function createPlatform(x, y) {
     broken: false   // para las BREAK
   };
 
-  // Monedas Thunder – pueden salir en cualquier plataforma
+  // Monedas Thunder — pueden salir en cualquier plataforma
   if (Math.random() < 0.18) {
     coinItems.push({
       x: x + plat.w / 2,
       y: y - 12,
-      r: COIN_DRAW_SIZE * 0.3,
+      r: COIN_DRAW_SIZE * 0.2,
       taken: false
     });
   }
