@@ -238,9 +238,9 @@ const ctx    = canvas.getContext("2d");
 const VW = 180;
 const VH = 320;
 
-canvas.width  = VW * 2;
-canvas.height = VH * 2;
-ctx.scale(2, 2);
+canvas.width  = VW * 1.5;
+canvas.height = VH * 1.5;
+ctx.scale(1.5, 1.5);
 
 const hudScore  = document.getElementById("hudScore");
 const hudZone   = document.getElementById("hudZone");
@@ -696,7 +696,7 @@ function update(dt) {
 
   // cámara
   let diff = 0;
-  const cam = VH * 0.4;
+  const cam = VH * 0.55;
   if (player.y < cam) {
     diff = cam - player.y;
     player.y += diff;
