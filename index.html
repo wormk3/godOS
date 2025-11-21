@@ -20,7 +20,7 @@
     }
 
     .frame {
-      width: min(420px, 100vw);
+      width: min(420px, 100vw);      /* tamaño físico igual, pero el mundo interno ahora es más grande */
       aspect-ratio: 9 / 16;
       border-radius: 16px;
       border: 2px solid #ff55dd;
@@ -53,9 +53,7 @@
       border-bottom: 1px solid #ff5577;
     }
 
-    .hud-left {
-      min-width: 64px;
-    }
+    .hud-left { min-width: 64px; }
 
     .hud-score {
       font-size: 20px;
@@ -96,9 +94,9 @@
     }
 
     .coin-icon {
-      width: 20px;
-      height: 20px;
-      image-rendering: auto;   /* que se vea suave, no pixelado */
+      width: 16px;             /* lo bajamos un poco para que no se vea tan chafa */
+      height: 16px;
+      image-rendering: pixelated;
     }
 
     /* HUD INFERIOR */
@@ -138,8 +136,8 @@
     </div>
 
     <div class="hud-coins">
-      <!-- Icono HUD: moneda fija -->
-      <img src="thunder-coin-hud.png" class="coin-icon" alt="coin" />
+      <!-- lo ideal sería un PNG de un solo frame para el HUD; por ahora usamos el sheet reducido -->
+      <img src="thunder-coin.PNG" class="coin-icon" alt="coin" />
       <span id="hudCoins">0</span>
     </div>
   </div>
@@ -155,58 +153,73 @@
 //              CARGA DE RECURSOS
 // ======================================================
 const bgImgs = {
-  garden: new Image(),
-  sky: new Image(),
-  solar: new Image(),
-  milkyway: new Image(),
-  virgo: new Image(),
-  horizon: new Image()
+  garden:   new Image(),
+  sky:      new Image(),
+  strato:   new Image(),
+  orbit:    new Image(),
+  moon:     new Image(),
+  mars:     new Image(),
+  belt:     new Image(),
+  jupiter:  new Image(),
+  saturn:   new Image(),
+  uranus:   new Image(),
+  neptune:  new Image(),
+  pluto:    new Image(),
+  rift:     new Image()
 };
 
+// Por ahora puedes mapear varios a las mismas imágenes que ya tienes
 const bgPaths = {
-  garden: "bg-garden.jpeg",
-  sky: "bg-sky.jpeg",
-  solar: "bg-solar.jpeg",
-  milkyway: "bg-milkyway.JPG",
-  virgo: "bg-virgo.JPG",
-  horizon: "bg-horizon.JPG"
+  garden:  "bg-garden.jpeg",
+  sky:     "bg-sky.jpeg",
+  strato:  "bg-sky.jpeg",
+  orbit:   "bg-solar.jpeg",
+  moon:    "bg-solar.jpeg",
+  mars:    "bg-solar.jpeg",
+  belt:    "bg-milkyway.JPG",
+  jupiter: "bg-milkyway.JPG",
+  saturn:  "bg-virgo.JPG",
+  uranus:  "bg-virgo.JPG",
+  neptune: "bg-horizon.JPG",
+  pluto:   "bg-horizon.JPG",
+  rift:    "bg-horizon.JPG"
 };
 
 // --------- ORBE POWER-UP (SPRITE SHEET) ---------
-orbImg = new Image();
+const orbImg = new Image();
 const orbPath = "orb-electric.png";
 
 const ORB_COLS = 8;
 let ORB_FRAME_SIZE = 128;
-const ORB_DRAW_SIZE = 10;
+const ORB_DRAW_SIZE = 11;       // un poquito más grande
 
 let orbAnim = 0;
 let orbFrame = 0;
 
-// --------- THUNDER COIN (SPRITE SHEET 9 FRAMES) ---------
+// --------- THUNDER COIN (SPRITE SHEET) ---------
 const coinImg = new Image();
-const coinPath = "thunder-coin.PNG";   // sprite sheet de rotación
+const coinPath = "thunder-coin.PNG";
 
-const COIN_COLS = 9;
-let COIN_FRAME_SIZE = 64;              // se ajusta al cargar
-const COIN_DRAW_SIZE = 11;             // tamaño en el mundo
+const COIN_COLS = 9;            // tu sheet de 9 frames
+let COIN_FRAME_SIZE = 64;
+const COIN_DRAW_SIZE = 11;
 
 let coinAnim = 0;
 let coinFrame = 0;
 
 // --------- SPRITES THUNDER ---------
 const thunderImgs = {
-  idle: new Image(),
+  idle:      new Image(),
   jumpRight: new Image(),
-  jumpLeft: new Image(),
-  fall: new Image()
+  jumpLeft:  new Image(),
+  fall:      new Image()
 };
 
 const thunderPaths = {
-  idle: "thunder-idle.png",
+  idle:      "thunder-idle.png",
   jumpRight: "thunder-jump_right.png",
-  jumpLeft: "thunder_jump_left.png",
-  fall: "thunder_fall.png"
+  jumpLeft:  "thunder_jump_left.png",
+  fall:      "thunder_fall.png"
 };
 
 async function preloadAssets() {
@@ -243,8 +256,9 @@ async function preloadAssets() {
 const canvas = document.getElementById("game");
 const ctx    = canvas.getContext("2d");
 
-const VW = 240;
-const VH = 420;
+// Mundo lógico más grande
+const VW = 216;
+const VH = 384;
 
 canvas.width  = VW * 2;
 canvas.height = VH * 2;
@@ -255,17 +269,17 @@ const hudZone   = document.getElementById("hudZone");
 const hudCoins  = document.getElementById("hudCoins");
 const hudBottom = document.getElementById("hudBottom");
 
-let coins      = 0;     // contador de monedas
+let coins      = 0;
 let lastTime   = 0;
 let leftHeld   = false;
 let rightHeld  = false;
 let bestHeight = 0;
-let orbBoostTimer = 0;  // tiempo restante del efecto del orbe
 
+// físicas
 const world = {
-  gravity: 0.4,
+  gravity: 0.38,        // un pelín menos gravedad para boosts altos más suaves
   baseJumpVel: -8.5,
-  maxVX: 2.4,
+  maxVX: 2.5,
   friction: 0.9,
   scrollY: 0,
   heightMeters: 0
@@ -273,7 +287,7 @@ const world = {
 
 const player = {
   x: VW/2,
-  y: VH-40,
+  y: VH-60,            // lo bajamos un poco en pantalla para que haya más "cielo"
   vx: 0,
   vy: 0,
   r: 7,
@@ -285,15 +299,34 @@ let powerUps  = [];   // orbes eléctricos
 let coinItems = [];   // monedas recogibles
 
 // ======================================================
-//                FUNCIONES DE ZONAS
+//                ZONAS (0 a 50,000 m)
 // ======================================================
 function getZone(height) {
-  if (height < 150)   return { key:"garden",   name:"Jardín",                top:"#19143f", mid:"#182b57", bottom:"#0f4a3a", stars:25 };
-  if (height < 900)   return { key:"sky",      name:"Cielo",                 top:"#203a7a", mid:"#246db0", bottom:"#63b3ff", stars:36 };
-  if (height < 3500)  return { key:"solar",    name:"Sistema Solar",         top:"#10152f", mid:"#171f4f", bottom:"#243a6b", stars:60 };
-  if (height < 12000) return { key:"milkyway", name:"Vía Láctea",            top:"#050313", mid:"#151437", bottom:"#203b6a", stars:90 };
-  if (height < 40000) return { key:"virgo",    name:"Supercúmulo de Virgo",  top:"#05020c", mid:"#24062e", bottom:"#3c1458", stars:120 };
-  return { key:"horizon", name:"Horizonte Cósmico",                          top:"#2b0538", mid:"#3b1374", bottom:"#ff0077", stars:140 };
+  if (height < 500)
+    return { key:"garden", name:"Jardín" };
+  if (height < 2000)
+    return { key:"sky", name:"Cielo" };
+  if (height < 5000)
+    return { key:"strato", name:"Estratósfera" };
+  if (height < 9000)
+    return { key:"orbit", name:"Órbita Terrestre" };
+  if (height < 13000)
+    return { key:"moon", name:"Luna" };
+  if (height < 17000)
+    return { key:"mars", name:"Marte" };
+  if (height < 22000)
+    return { key:"belt", name:"Cinturón de Asteroides" };
+  if (height < 27000)
+    return { key:"jupiter", name:"Júpiter" };
+  if (height < 32000)
+    return { key:"saturn", name:"Saturno" };
+  if (height < 37000)
+    return { key:"uranus", name:"Urano" };      // aquí luego meteoro grande y lento
+  if (height < 42000)
+    return { key:"neptune", name:"Neptuno" };
+  if (height < 46000)
+    return { key:"pluto", name:"Plutón / Kuiper" };
+  return { key:"rift", name:"Ruptura del Ciberespacio" };
 }
 
 // ======================================================
@@ -308,47 +341,56 @@ const PLATFORM_TYPES = {
 };
 
 function createPlatform(x, y) {
-  const difficulty = world.heightMeters;   // altura actual
+  const difficulty = world.heightMeters;
   let type = PLATFORM_TYPES.NORMAL;
+
   const r = Math.random();
 
-  // Elegimos tipo en función de la altura
+  // Elección de tipo según altura
   if (difficulty > 3000 && r < 0.15)       type = PLATFORM_TYPES.SMALL;
   else if (difficulty > 2000 && r < 0.10)  type = PLATFORM_TYPES.BREAK;
   else if (difficulty > 800  && r < 0.10)  type = PLATFORM_TYPES.MOVE;
   else if (r < 0.05)                       type = PLATFORM_TYPES.BOOST;
 
-  const wBase = 40;
+  // Plataformas algo más grandes abajo, más pequeñas arriba
+  let wBase = 44;
+  if (difficulty > 15000) wBase = 36;
+  if (difficulty > 30000) wBase = 30;
 
   const plat = {
     x,
     y,
-    w: (type === PLATFORM_TYPES.SMALL ? 26 : wBase),
+    w: (type === PLATFORM_TYPES.SMALL ? 24 : wBase),
     h: 6,
     type,
-    // solo las MOVE se mueven
-    vx: (type === PLATFORM_TYPES.MOVE ? (Math.random() < 0.5 ? -0.4 : 0.4) : 0),
+    vx: (type === PLATFORM_TYPES.MOVE ? (Math.random() < 0.5 ? -0.5 : 0.5) : 0),
     rangeMin: 10,
     rangeMax: VW - 10,
-    broken: false   // para las BREAK
+    broken: false
   };
 
   // Monedas Thunder — pueden salir en cualquier plataforma
-  if (Math.random() < 0.18) {
+  if (Math.random() < 0.20) {
     coinItems.push({
       x: x + plat.w / 2,
       y: y - 12,
-      r: COIN_DRAW_SIZE * 0.3,
+      r: COIN_DRAW_SIZE * 0.4,
       taken: false
     });
   }
 
-  // Orbes eléctricos — no aparecen en Jardín
-  const zone = getZone(world.heightMeters);
-  if (zone.key !== "garden" && Math.random() < 0.10) {
+  // Orbes eléctricos — desde Órbita Terrestre en adelante
+  const zone = getZone(difficulty);
+  const canHaveOrb =
+    zone.key === "orbit" || zone.key === "moon" || zone.key === "mars" ||
+    zone.key === "belt"  || zone.key === "jupiter" || zone.key === "saturn" ||
+    zone.key === "uranus"|| zone.key === "neptune" || zone.key === "pluto" ||
+    zone.key === "rift";
+
+  if (canHaveOrb && Math.random() < 0.06) {
     powerUps.push({
       x: x + plat.w / 2,
-      y: y - 14,
+      y: y - 18,
       r: ORB_DRAW_SIZE * 0.6,
       taken: false
     });
@@ -362,12 +404,12 @@ function initPlatforms() {
   powerUps  = [];
   coinItems = [];
 
-  let y = VH - 20;
+  let y = VH - 30;
   platforms.push(createPlatform(VW/2 - 20, y));
 
-  // tramos iniciales más densos
+  // MÁS densidad de plataformas: pasos más pequeños
   while (y > -VH) {
-    y -= 12 + Math.random()*8;
+    y -= 14 + Math.random()*6;    // antes tenías 18 + random*10
     const x = 10 + Math.random()*(VW-60);
     platforms.push(createPlatform(x, y));
   }
@@ -384,7 +426,7 @@ function handleKeyboard(e, down) {
 document.addEventListener("keydown", e => handleKeyboard(e,true));
 document.addEventListener("keyup",   e => handleKeyboard(e,false));
 
-// Controles táctiles – funciona en iPhone / Android
+// Táctil
 function handleTouch(e) {
   e.preventDefault();
 
@@ -417,7 +459,7 @@ document.addEventListener("touchmove",  handleTouch, { passive:false });
 document.addEventListener("touchend",   clearTouch,  { passive:false });
 document.addEventListener("touchcancel",clearTouch,  { passive:false });
 
-// Click con mouse (PC)
+// Mouse (PC)
 canvas.addEventListener("mousedown", e => {
   const rect = canvas.getBoundingClientRect();
   const x = e.clientX - rect.left;
@@ -435,7 +477,7 @@ function drawBackground() {
   const z   = getZone(world.heightMeters);
   const img = bgImgs[z.key];
 
-  if (img.complete && img.naturalWidth) {
+  if (img && img.complete && img.naturalWidth) {
     const iw = img.naturalWidth;
     const ih = img.naturalHeight;
     const ratio = iw/ih;
@@ -453,9 +495,8 @@ function drawBackground() {
     ctx.drawImage(img, (VW-dw)/2, (VH-dh)/2, dw, dh);
   } else {
     const grad = ctx.createLinearGradient(0,0,0,VH);
-    grad.addColorStop(0, z.top);
-    grad.addColorStop(0.5, z.mid);
-    grad.addColorStop(1, z.bottom);
+    grad.addColorStop(0, "#05020c");
+    grad.addColorStop(1, "#300018");
     ctx.fillStyle = grad;
     ctx.fillRect(0,0,VW,VH);
   }
@@ -463,11 +504,10 @@ function drawBackground() {
 
 function drawPlatforms() {
   for (const p of platforms) {
-    // Sombra base
+    // sombra
     ctx.fillStyle = "#2a1238";
     ctx.fillRect(p.x, p.y + 2, p.w, p.h);
 
-    // Colores según tipo
     let topColor    = "#ff8cff";
     let bottomColor = "#d350ff";
 
@@ -496,8 +536,8 @@ function drawPlatforms() {
       ctx.beginPath();
       ctx.moveTo(p.x, p.y);
       ctx.lineTo(p.x + p.w, p.y + p.h);
-      ctx.moveTo(p.x + p.w * 0.2, p.y);
-      ctx.lineTo(p.x + p.w * 0.8, p.y + p.h);
+      ctx.moveTo(p.x + p.w*0.2, p.y);
+      ctx.lineTo(p.x + p.w*0.8, p.y + p.h);
       ctx.stroke();
     }
   }
@@ -514,10 +554,10 @@ function drawPowerUps() {
   for (const pu of powerUps) {
     if (pu.taken) continue;
 
-    const glowR = ORB_DRAW_SIZE*1.4;
+    const glowR = ORB_DRAW_SIZE*1.6;
     const grad = ctx.createRadialGradient(pu.x, pu.y, 0, pu.x, pu.y, glowR);
-    grad.addColorStop(0, "rgba(255,255,180,0.9)");
-    grad.addColorStop(1, "rgba(255,255,180,0)");
+    grad.addColorStop(0, "rgba(255,255,200,0.9)");
+    grad.addColorStop(1, "rgba(255,255,200,0)");
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(pu.x, pu.y, glowR, 0, Math.PI*2);
@@ -578,17 +618,10 @@ function drawThunder() {
 function update(dt) {
   if (!player.alive) return;
 
-  // Contador del efecto del orbe
-  if (orbBoostTimer > 0) {
-    orbBoostTimer -= dt;
-    if (orbBoostTimer < 0) orbBoostTimer = 0;
-  }
-
-  // Mover plataformas móviles (MOVE) izquierda / derecha
+  // mover plataformas MOVE
   for (const p of platforms) {
     if (p.type === PLATFORM_TYPES.MOVE) {
       p.x += p.vx * dt * 60;
-
       if (p.x < p.rangeMin || p.x + p.w > p.rangeMax) {
         p.vx *= -1;
         if (p.x < p.rangeMin) p.x = p.rangeMin;
@@ -598,8 +631,8 @@ function update(dt) {
   }
 
   // movimiento lateral
-  if (leftHeld && !rightHeld)  player.vx -= 0.26 * dt * 60;
-  if (rightHeld && !leftHeld)  player.vx += 0.26 * dt * 60;
+  if (leftHeld && !rightHeld)  player.vx -= 0.30 * dt * 60;
+  if (rightHeld && !leftHeld)  player.vx += 0.30 * dt * 60;
   if (!leftHeld && !rightHeld) player.vx *= world.friction;
 
   if (player.vx > world.maxVX)  player.vx = world.maxVX;
@@ -622,17 +655,17 @@ function update(dt) {
         player.y + player.r > p.y &&
         player.y + player.r < p.y + p.h + player.vy * dt * 60 + 1
       ) {
-        // Lo pegamos encima de la plataforma
         player.y = p.y - player.r;
 
-        // Si es BOOST, salto más fuerte
+        // saltos
+        const normalJump = world.baseJumpVel;
+        const boostJump  = world.baseJumpVel * 1.4; // BOOST más controlable
         if (p.type === PLATFORM_TYPES.BOOST) {
-          player.vy = world.baseJumpVel * 1.6;
+          player.vy = boostJump;
         } else {
-          player.vy = world.baseJumpVel;
+          player.vy = normalJump;
         }
 
-        // Si es BREAK, la marcamos para que desaparezca
         if (p.type === PLATFORM_TYPES.BREAK) {
           p.broken = true;
         }
@@ -640,8 +673,8 @@ function update(dt) {
     }
   }
 
-  // scroll vertical
-  const cam = VH * 0.4;
+  // scroll
+  const cam = VH * 0.38;  // bajamos un poco la "cámara"
   if (player.y < cam) {
     const diff = cam - player.y;
     player.y += diff;
@@ -649,24 +682,22 @@ function update(dt) {
 
     for (let p of platforms) p.y += diff;
     for (let pu of powerUps) pu.y += diff;
-    for (let c of coinItems) c.y += diff;
+    for (let c  of coinItems) c.y  += diff;
 
-    // eliminamos las muy bajas y las BREAK rotas
-    platforms = platforms.filter(p => p.y < VH + 20 && !p.broken);
-
-    // más plataformas, más juntas
-    while (platforms.length < 32) {
+    // limpiar y re-crear
+    platforms = platforms.filter(p => p.y < VH+30 && !p.broken);
+    while (platforms.length < 22) {
       const topY = Math.min(...platforms.map(pl => pl.y));
-      const newY = topY - (10 + Math.random()*8);
+      const newY = topY - (14 + Math.random()*6);
       const newX = 10 + Math.random()*(VW-60);
       platforms.push(createPlatform(newX, newY));
     }
 
-    powerUps = powerUps.filter(pu => pu.y < VH+40 && !pu.taken);
-    coinItems = coinItems.filter(c => c.y < VH+40 && !c.taken);
+    powerUps  = powerUps.filter(pu => pu.y < VH+40 && !pu.taken);
+    coinItems = coinItems.filter(c  => c.y  < VH+40 && !c.taken);
   }
 
-  // recoger orbes
+  // recoger orbes – ULTRA BOOST (más fuerte que la plataforma verde)
   for (const pu of powerUps) {
     if (pu.taken) continue;
     const dx = pu.x - player.x;
@@ -674,12 +705,8 @@ function update(dt) {
     const rr = pu.r + player.r;
     if (dx*dx + dy*dy < rr*rr) {
       pu.taken = true;
-
-      // Orbe: súper salto vertical (mucho más que la plataforma verde)
-      player.vy = world.baseJumpVel * 3.2;
-
-      // efecto activo (no acumulable, solo se reinicia)
-      orbBoostTimer = 0.8;
+      // salto MUCHO más alto, pero con menos gravedad ya es más controlable
+      player.vy = world.baseJumpVel * 2.0;
     }
   }
 
@@ -691,7 +718,7 @@ function update(dt) {
     const rr = c.r + player.r;
     if (dx*dx + dy*dy < rr*rr) {
       c.taken = true;
-      coins += 1;     // cada moneda vale 1
+      coins += 1;
     }
   }
 
@@ -702,7 +729,7 @@ function update(dt) {
   hudZone.textContent  = `Zona: ${getZone(meters).name}`;
   hudCoins.textContent = coins;
 
-  if (player.y > VH + 20) {
+  if (player.y > VH + 40) {
     player.alive = false;
     bestHeight = Math.max(bestHeight, world.scrollY);
     hudBottom.textContent =
@@ -737,18 +764,16 @@ function resetGame() {
   world.heightMeters = 0;
 
   player.x = VW/2;
-  player.y = VH-40;
+  player.y = VH-60;
   player.vx = 0;
   player.vy = -5;
   player.alive = true;
 
   coins = 0;
-  orbBoostTimer = 0;
   initPlatforms();
   hudBottom.textContent = `Mejor: ${Math.floor(bestHeight/10)} m`;
 }
 
-// start
 preloadAssets().then(() => {
   resetGame();
   requestAnimationFrame(gameLoop);
