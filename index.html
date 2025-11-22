@@ -206,20 +206,20 @@ const METEOR_BIG_DRAW_W = 40;
 const METEOR_BIG_DRAW_H = 24;
 let   meteorBigAnim = 0, meteorBigFrame = 0;
 
-// ================= ENEMY BIRD (SPRITE SHEET) =================
 const birdImg = new Image();
 birdImg.src = "enemy-bird.png";
 
-const BIRD_COLS = 16;          // 16 frames en la tira
-let   BIRD_FRAME_W = 128;      // 2048 / 16
-let   BIRD_FRAME_H = 80;       // altura real del PNG
+const BIRD_COLS = 16;     // número de frames
+const BIRD_FRAME_W = 96;  // ancho por frame
+const BIRD_FRAME_H = 60;  // alto por frame
 
-// tamaño al que lo dibujas en el juego (ajusta a gusto)
-const BIRD_DRAW_W = 40;
-const BIRD_DRAW_H = 25;
+// tamaño con el que se dibuja en pantalla (puedes ajustarlo)
+const BIRD_DRAW_W = 34;
+const BIRD_DRAW_H = 21;
 
-let  birdAnim  = 0;
-let  birdFrame = 0;
+// animación
+let birdAnim = 0;
+let birdFrame = 0;
 
 // cuando crees el pájaro, usa este tamaño para la colisión:
 function spawnBird() {
@@ -657,15 +657,15 @@ function drawBirds() {
   birdFrame = Math.floor(birdAnim) % BIRD_COLS;
 
   for (const b of birds) {
-    ctx.drawImage(
-      birdImg,
-      birdFrame * BIRD_FRAME_W, 0,     // recorte dentro del sprite sheet
-      BIRD_FRAME_W, BIRD_FRAME_H,
-      b.x - BIRD_DRAW_W / 2,           // posición en pantalla
-      b.y - BIRD_DRAW_H / 2,
-      BIRD_DRAW_W,
-      BIRD_DRAW_H
-    );
+  ctx.drawImage(
+  birdImg,
+  birdFrame * BIRD_FRAME_W, 0,
+  BIRD_FRAME_W, BIRD_FRAME_H,
+  b.x - BIRD_DRAW_W/2,
+  b.y - BIRD_DRAW_H/2,
+  BIRD_DRAW_W,
+  BIRD_DRAW_H
+  );
   }
 }
 
