@@ -20,7 +20,7 @@
     }
 
     .frame {
-      width: min(460px, 100vw);
+      width: min(460px, 100vw);     /* ⬅ Tamaño visual del juego */
       aspect-ratio: 9 / 16;
       border-radius: 16px;
       border: 2px solid #ff55dd;
@@ -37,7 +37,7 @@
       display: block;
     }
 
-    /* HUD SUPERIOR */
+    /* ================= HUD SUPERIOR ================= */
     .hud-top {
       position: absolute;
       top: 4px;
@@ -53,7 +53,9 @@
       border-bottom: 1px solid #ff5577;
     }
 
-    .hud-left { min-width: 72px; }
+    .hud-left {
+      min-width: 72px;
+    }
 
     .hud-score {
       font-size: 20px;
@@ -100,7 +102,7 @@
       object-fit: contain;
     }
 
-    /* HUD INFERIOR */
+    /* ================= HUD INFERIOR ================= */
     .hud-bottom {
       position: absolute;
       bottom: 4px;
@@ -149,126 +151,124 @@
 </div>
 
 <script>
-// ======================= CARGA RECURSOS =======================
+/* =====================================================
+   [A] RECURSOS E IMÁGENES
+   ===================================================== */
 const bgImgs = {
-  garden: new Image(),
-  sky: new Image(),
-  solar: new Image(),
+  garden:   new Image(),
+  sky:      new Image(),
+  solar:    new Image(),
   milkyway: new Image(),
-  virgo: new Image(),
-  horizon: new Image()
-};
-const bgPaths = {
-  garden: "bg-garden.jpeg",
-  sky: "bg-sky.jpeg",
-  solar: "bg-solar.jpeg",
-  milkyway: "bg-milkyway.JPG",
-  virgo: "bg-virgo.JPG",
-  horizon: "bg-horizon.JPG"
+  virgo:    new Image(),
+  horizon:  new Image()
 };
 
-// Orbe eléctrico
+const bgPaths = {
+  garden:   "bg-garden.jpeg",
+  sky:      "bg-sky.jpeg",
+  solar:    "bg-solar.jpeg",
+  milkyway: "bg-milkyway.JPG",
+  virgo:    "bg-virgo.JPG",
+  horizon:  "bg-horizon.JPG"
+};
+
+/* --- Orbe eléctrico --- */
 const orbImg  = new Image();
+const orbPath = "orb-electric.png";
 const ORB_COLS = 8;
 let   ORB_FRAME_SIZE = 128;
 const ORB_DRAW_SIZE  = 8;
 let   orbAnim = 0, orbFrame = 0;
 
-// Moneda Thunder
+/* --- Moneda Thunder (sprite sheet) --- */
 const coinImg  = new Image();
+const coinPath = "thunder-coin.PNG";
 const COIN_COLS = 9;
 let   COIN_FRAME_SIZE = 64;
 const COIN_DRAW_SIZE  = 9;
 let   coinAnim = 0, coinFrame = 0;
 
-// Enemy bird (sprite sheet)
-const birdImg = new Image();
-birdImg.src = "enemy-bird.png";
+/* --- Meteorito verde pequeño (enemy-meteor-small.png) --- */
+const meteorSmallImg = new Image();
+const METEOR_SMALL_COLS = 16;
+let   METEOR_SMALL_FRAME_W = 128;
+let   METEOR_SMALL_FRAME_H = 113;
+const METEOR_SMALL_DRAW_W = 32;
+const METEOR_SMALL_DRAW_H = 18;
+let   meteorSmallAnim = 0, meteorSmallFrame = 0;
 
-// 16 frames horizontales en una tira de 2048x80
-const BIRD_COLS    = 16;
-const BIRD_FRAME_W = 128; // 2048 / 16
-const BIRD_FRAME_H = 80;  // alto real de la imagen
+/* --- Meteorito rojo grande (enemy-meteor-big.png) --- */
+const meteorBigImg = new Image();
+const METEOR_BIG_COLS = 16;
+let   METEOR_BIG_FRAME_W = 128;
+let   METEOR_BIG_FRAME_H = 146;
+const METEOR_BIG_DRAW_W = 40;
+const METEOR_BIG_DRAW_H = 24;
+let   meteorBigAnim = 0, meteorBigFrame = 0;
 
-// tamaño al que se dibuja en pantalla (puedes ajustarlo)
-const BIRD_DRAW_W = 34;
-const BIRD_DRAW_H = 26;
-
-let birdAnim  = 0;
-let birdFrame = 0;
-
-// lista de enemigos (ya la tienes creada en tu código)
-let birds = []; 
-
-function drawBirds() {
-  if (!birdImg.complete || !birdImg.naturalWidth) return;
-
-  // Animación: usamos solo un rango de frames “bonitos”
-  // por ejemplo del 2 al 11 para evitar giros feos
-  const START = 2;
-  const END   = 11;
-  const SPAN  = END - START + 1;
-
-  birdAnim += 0.18;
-  birdFrame = START + (Math.floor(birdAnim) % SPAN);
-
-  for (const b of birds) {
-    ctx.drawImage(
-      birdImg,
-      birdFrame * BIRD_FRAME_W, // sx
-      0,                        // sy
-      BIRD_FRAME_W,
-      BIRD_FRAME_H,
-      b.x - BIRD_DRAW_W / 2,    // dx
-      b.y - BIRD_DRAW_H / 2,    // dy
-      BIRD_DRAW_W,
-      BIRD_DRAW_H
-    );
-  }
-}
-
-
-// Thunder sprites
+/* --- Sprites Thunder --- */
 const thunderImgs = {
-  idle: new Image(),
+  idle:      new Image(),
   jumpRight: new Image(),
-  jumpLeft: new Image(),
-  fall: new Image()
-};
-const thunderPaths = {
-  idle: "thunder-idle.png",
-  jumpRight: "thunder-jump_right.png",
-  jumpLeft: "thunder_jump_left.png",
-  fall: "thunder_fall.png"
+  jumpLeft:  new Image(),
+  fall:      new Image()
 };
 
+const thunderPaths = {
+  idle:      "thunder-idle.png",
+  jumpRight: "thunder-jump_right.png",
+  jumpLeft:  "thunder_jump_left.png",
+  fall:      "thunder_fall.png"
+};
+
+/* --- Carga asíncrona de todo --- */
 async function preloadAssets() {
   const tasks = [];
-  const load = (img, path) => new Promise(res => {
-    img.onload = res; img.onerror = res; img.src = path;
-  });
+
+  function load(img, path) {
+    return new Promise(res => {
+      img.onload = res;
+      img.onerror = res;
+      img.src = path;
+    });
+  }
 
   for (let k in bgPaths)      tasks.push(load(bgImgs[k], bgPaths[k]));
   for (let k in thunderPaths) tasks.push(load(thunderImgs[k], thunderPaths[k]));
-  tasks.push(load(orbImg,  "orb-electric.png"));
-  tasks.push(load(coinImg, "thunder-coin.PNG"));
-  tasks.push(load(birdImg, "enemy-bird.png"));
+
+  tasks.push(load(orbImg,  orbPath));
+  tasks.push(load(coinImg, coinPath));
+  tasks.push(load(meteorSmallImg, "enemy-meteor-small.png"));
+  tasks.push(load(meteorBigImg,   "enemy-meteor-big.png"));
 
   await Promise.all(tasks);
 
-  if (orbImg.naturalWidth)  ORB_FRAME_SIZE  = orbImg.naturalWidth  / ORB_COLS;
-  if (coinImg.naturalWidth) COIN_FRAME_SIZE = coinImg.naturalWidth / COIN_COLS;
-  if (birdImg.naturalWidth) {
-    BIRD_FRAME_W = birdImg.naturalWidth / BIRD_COLS;
-    BIRD_FRAME_H = birdImg.naturalHeight;
+  if (orbImg.naturalWidth)   ORB_FRAME_SIZE          = orbImg.naturalWidth  / ORB_COLS;
+  if (coinImg.naturalWidth)  COIN_FRAME_SIZE         = coinImg.naturalWidth / COIN_COLS;
+  if (meteorSmallImg.naturalWidth) {
+    METEOR_SMALL_FRAME_W     = meteorSmallImg.naturalWidth / METEOR_SMALL_COLS;
+    METEOR_SMALL_FRAME_H     = meteorSmallImg.naturalHeight;
   }
+  if (meteorBigImg.naturalWidth) {
+    METEOR_BIG_FRAME_W       = meteorBigImg.naturalWidth / METEOR_BIG_COLS;
+    METEOR_BIG_FRAME_H       = meteorBigImg.naturalHeight;
+  }
+
+  console.log("Assets cargados");
 }
 
-// ======================= VARIABLES =======================
+/* =====================================================
+   [B] CONFIG BÁSICA DEL MUNDO
+   ===================================================== */
 const canvas = document.getElementById("game");
 const ctx    = canvas.getContext("2d");
 
-const VW = 180, VH = 320;
+/* Tamaño lógico del mundo (NO lo cambies a menos que
+   sepas que estás haciendo). Si quieres ver a Thunder
+   más arriba/abajo, modifícalo en la sección [F]. */
+const VW = 180;
+const VH = 320;
+
 canvas.width  = VW * 1.5;
 canvas.height = VH * 1.5;
 ctx.scale(1.5, 1.5);
@@ -278,7 +278,11 @@ const hudZone   = document.getElementById("hudZone");
 const hudCoins  = document.getElementById("hudCoins");
 const hudBottom = document.getElementById("hudBottom");
 
-let coins = 0, lastTime = 0, leftHeld = false, rightHeld = false, bestHeight = 0;
+let coins      = 0;
+let lastTime   = 0;
+let leftHeld   = false;
+let rightHeld  = false;
+let bestHeight = 0;
 
 const world = {
   gravity: 0.4,
@@ -289,9 +293,10 @@ const world = {
   heightMeters: 0
 };
 
+/* ================= Thunder (jugador) ================= */
 const player = {
-  x: VW/2,
-  y: VH-40,
+  x: VW / 2,
+  y: VH - 40,   // ⬅ Si quieres bajarlo/subirlo al inicio, cambia aquí
   vx: 0,
   vy: 0,
   r: 6,
@@ -299,22 +304,9 @@ const player = {
   invulnTimer: 0
 };
 
-let platforms = [];
-let powerUps  = [];
-let coinItems = [];
-let birds     = [];
-
-// ======================= ZONAS (0–20k m) =======================
-function getZone(h) {
-  if (h <   300) return { key:"garden",   name:"Jardín" };
-  if (h <  2500) return { key:"sky",      name:"Cielo" };
-  if (h <  6000) return { key:"solar",    name:"Sistema Solar" };
-  if (h < 11000) return { key:"milkyway", name:"Vía Láctea" };
-  if (h < 17000) return { key:"virgo",    name:"Supercúmulo de Virgo" };
-  return           { key:"horizon",  name:"Ruptura del Ciberespacio" };
-}
-
-// ======================= PLATAFORMAS / ÍTEMS =======================
+/* =====================================================
+   [C] ESTRUCTURAS DEL JUEGO
+   ===================================================== */
 const PLATFORM_TYPES = {
   NORMAL: "normal",
   SMALL:  "small",
@@ -323,19 +315,42 @@ const PLATFORM_TYPES = {
   BOOST:  "boost"
 };
 
+let platforms     = [];
+let powerUps      = [];  // orbes eléctricos
+let coinItems     = [];
+let birds         = [];  // enemigos pájaro (dibujados con código)
+let meteorSmalls  = [];  // meteorito verde
+let meteorBigs    = [];  // meteorito rojo
+
+/* ================= ZONAS / ALTURA ================= */
+function getZone(height) {
+  // Juego ajustado a ~20,000 m
+  if (height <   300) return { key:"garden",   name:"Jardín" };
+  if (height <  2500) return { key:"sky",      name:"Cielo" };
+  if (height <  6000) return { key:"solar",    name:"Sistema Solar" };
+  if (height < 11000) return { key:"milkyway", name:"Vía Láctea" };
+  if (height < 17000) return { key:"virgo",    name:"Supercúmulo de Virgo" };
+  return                 { key:"horizon",  name:"Ruptura del Ciberespacio" };
+}
+
+/* =====================================================
+   [D] GENERACIÓN DE PLATAFORMAS / MONEDAS / ORBES
+   ===================================================== */
 function createPlatform(x, y) {
-  const diff = world.heightMeters;
+  const difficulty = world.heightMeters;
   let type = PLATFORM_TYPES.NORMAL;
   const r = Math.random();
 
-  if      (diff > 6000 && r < 0.18) type = PLATFORM_TYPES.SMALL;
-  else if (diff > 4000 && r < 0.12) type = PLATFORM_TYPES.BREAK;
-  else if (diff > 2000 && r < 0.14) type = PLATFORM_TYPES.MOVE;
-  else if (r < 0.08)               type = PLATFORM_TYPES.BOOST;
+  // Tipos según altura
+  if (difficulty > 6000 && r < 0.18)       type = PLATFORM_TYPES.SMALL;
+  else if (difficulty > 4000 && r < 0.12)  type = PLATFORM_TYPES.BREAK;
+  else if (difficulty > 2000 && r < 0.14)  type = PLATFORM_TYPES.MOVE;
+  else if (r < 0.08)                       type = PLATFORM_TYPES.BOOST;
 
   const wBase = 32;
   const plat = {
-    x, y,
+    x,
+    y,
     w: (type === PLATFORM_TYPES.SMALL ? 22 : wBase),
     h: 5,
     type,
@@ -345,6 +360,7 @@ function createPlatform(x, y) {
     broken: false
   };
 
+  // Moneda
   if (Math.random() < 0.18) {
     coinItems.push({
       x: x + plat.w / 2,
@@ -354,6 +370,7 @@ function createPlatform(x, y) {
     });
   }
 
+  // Orbe (no en jardín)
   const z = getZone(world.heightMeters);
   if (z.key !== "garden" && Math.random() < 0.06) {
     powerUps.push({
@@ -368,45 +385,53 @@ function createPlatform(x, y) {
 }
 
 function initPlatforms() {
-  platforms = [];
-  powerUps  = [];
-  coinItems = [];
-  birds     = [];
+  platforms     = [];
+  powerUps      = [];
+  coinItems     = [];
+  birds         = [];
+  meteorSmalls  = [];
+  meteorBigs    = [];
 
   let y = VH - 20;
-  platforms.push(createPlatform(VW/2 - 16, y));
+  platforms.push(createPlatform(VW / 2 - 16, y));
 
   while (y > -VH) {
-    y -= 16 + Math.random()*9;
-    const x = 10 + Math.random()*(VW-60);
+    y -= 16 + Math.random() * 9;
+    const x = 10 + Math.random() * (VW - 60);
     platforms.push(createPlatform(x, y));
   }
 }
 
-// ======================= CONTROLES =======================
+/* =====================================================
+   [E] CONTROLES
+   ===================================================== */
 function handleKeyboard(e, down) {
   if (["ArrowLeft","a","A"].includes(e.key))  { leftHeld  = down; e.preventDefault(); }
   if (["ArrowRight","d","D"].includes(e.key)) { rightHeld = down; e.preventDefault(); }
   if (e.key === " " && !down && !player.alive) resetGame();
 }
-document.addEventListener("keydown", e => handleKeyboard(e,true));
-document.addEventListener("keyup",   e => handleKeyboard(e,false));
+document.addEventListener("keydown", e => handleKeyboard(e, true));
+document.addEventListener("keyup",   e => handleKeyboard(e, false));
 
 function handleTouch(e) {
   e.preventDefault();
-  if (!e.touches.length) { leftHeld = rightHeld = false; return; }
-
-  let anyLeft=false, anyRight=false;
+  if (e.touches.length === 0) {
+    leftHeld = rightHeld = false;
+    return;
+  }
+  let anyLeft = false, anyRight = false;
   const rect = canvas.getBoundingClientRect();
   for (const t of e.touches) {
     const x = t.clientX - rect.left;
     if (x < rect.width * 0.5) anyLeft = true;
     else                      anyRight = true;
   }
-  leftHeld = anyLeft; rightHeld = anyRight;
+  leftHeld  = anyLeft;
+  rightHeld = anyRight;
 }
-function clearTouch(){ leftHeld = rightHeld = false; }
-
+function clearTouch() {
+  leftHeld = rightHeld = false;
+}
 document.addEventListener("touchstart", handleTouch, { passive:false });
 document.addEventListener("touchmove",  handleTouch, { passive:false });
 document.addEventListener("touchend",   clearTouch,  { passive:false });
@@ -415,28 +440,41 @@ document.addEventListener("touchcancel",clearTouch,  { passive:false });
 canvas.addEventListener("mousedown", e => {
   const rect = canvas.getBoundingClientRect();
   const x = e.clientX - rect.left;
-  leftHeld = x < rect.width * 0.5;
-  rightHeld = !leftHeld;
+  if (x < rect.width * 0.5) leftHeld = true;
+  else                      rightHeld = true;
 });
-window.addEventListener("mouseup", () => { leftHeld = rightHeld = false; });
+window.addEventListener("mouseup", () => {
+  leftHeld = rightHeld = false;
+});
 
-// ======================= DIBUJO =======================
+/* =====================================================
+   [F] DIBUJO DE ESCENA
+   ===================================================== */
 function drawBackground() {
-  const z = getZone(world.heightMeters);
+  const z   = getZone(world.heightMeters);
   const img = bgImgs[z.key];
 
   if (img.complete && img.naturalWidth) {
-    const iw = img.naturalWidth, ih = img.naturalHeight;
-    const ratio = iw/ih, screenRatio = VW/VH;
+    const iw = img.naturalWidth;
+    const ih = img.naturalHeight;
+    const ratio = iw / ih;
+    const screenRatio = VW / VH;
+
     let dw, dh;
-    if (ratio > screenRatio) { dh = VH; dw = dh*ratio; }
-    else { dw = VW; dh = dw/ratio; }
-    ctx.drawImage(img, (VW-dw)/2, (VH-dh)/2, dw, dh);
+    if (ratio > screenRatio) {
+      dh = VH;
+      dw = dh * ratio;
+    } else {
+      dw = VW;
+      dh = dw / ratio;
+    }
+
+    ctx.drawImage(img, (VW - dw) / 2, (VH - dh) / 2, dw, dh);
   } else {
-    const g = ctx.createLinearGradient(0,0,0,VH);
-    g.addColorStop(0,"#050313");
-    g.addColorStop(1,"#0f4a3a");
-    ctx.fillStyle = g;
+    const grad = ctx.createLinearGradient(0,0,0,VH);
+    grad.addColorStop(0, "#050313");
+    grad.addColorStop(1, "#0f4a3a");
+    ctx.fillStyle = grad;
     ctx.fillRect(0,0,VW,VH);
   }
 }
@@ -446,31 +484,47 @@ function drawPlatforms() {
     if (p.broken) continue;
 
     ctx.fillStyle = "#2a1238";
-    ctx.fillRect(p.x, p.y+2, p.w, p.h);
+    ctx.fillRect(p.x, p.y + 2, p.w, p.h);
 
-    let top="#ff8cff", bottom="#d350ff";
-    if (p.type==="break") { top="#ffb347"; bottom="#ff6b3d"; }
-    else if (p.type==="move") { top="#8cd6ff"; bottom="#5075ff"; }
-    else if (p.type==="boost"){ top="#c7ff6b"; bottom="#5fd63a"; }
-    else if (p.type==="small"){ top="#ff9cff"; bottom="#e040ff"; }
+    let topColor    = "#ff8cff";
+    let bottomColor = "#d350ff";
 
-    const g = ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.h);
-    g.addColorStop(0,top); g.addColorStop(1,bottom);
+    if (p.type === PLATFORM_TYPES.BREAK) {
+      topColor    = "#ffb347";
+      bottomColor = "#ff6b3d";
+    } else if (p.type === PLATFORM_TYPES.MOVE) {
+      topColor    = "#8cd6ff";
+      bottomColor = "#5075ff";
+    } else if (p.type === PLATFORM_TYPES.BOOST) {
+      topColor    = "#c7ff6b";
+      bottomColor = "#5fd63a";
+    } else if (p.type === PLATFORM_TYPES.SMALL) {
+      topColor    = "#ff9cff";
+      bottomColor = "#e040ff";
+    }
+
+    const g = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.h);
+    g.addColorStop(0, topColor);
+    g.addColorStop(1, bottomColor);
     ctx.fillStyle = g;
-    ctx.fillRect(p.x,p.y,p.w,p.h);
+    ctx.fillRect(p.x, p.y, p.w, p.h);
 
-    if (p.type==="break") {
+    if (p.type === PLATFORM_TYPES.BREAK) {
       ctx.strokeStyle = "rgba(80,0,0,0.6)";
       ctx.beginPath();
-      ctx.moveTo(p.x,p.y); ctx.lineTo(p.x+p.w,p.y+p.h);
-      ctx.moveTo(p.x+p.w*0.2,p.y); ctx.lineTo(p.x+p.w*0.8,p.y+p.h);
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x + p.w, p.y + p.h);
+      ctx.moveTo(p.x + p.w*0.2, p.y);
+      ctx.lineTo(p.x + p.w*0.8, p.y + p.h);
       ctx.stroke();
     }
   }
 }
 
+/* --- Orbes --- */
 function drawPowerUps() {
   if (!orbImg.complete || !orbImg.naturalWidth) return;
+
   orbAnim += 0.16;
   orbFrame = Math.floor(orbAnim) % ORB_COLS;
   const fs = ORB_FRAME_SIZE;
@@ -478,95 +532,203 @@ function drawPowerUps() {
   for (const pu of powerUps) {
     if (pu.taken) continue;
 
-    const glowR = ORB_DRAW_SIZE*1.6;
-    const grad = ctx.createRadialGradient(pu.x,pu.y,0,pu.x,pu.y,glowR);
-    grad.addColorStop(0,"rgba(255,255,200,0.9)");
-    grad.addColorStop(1,"rgba(255,255,200,0)");
+    const glowR = ORB_DRAW_SIZE * 1.6;
+    const grad = ctx.createRadialGradient(pu.x, pu.y, 0, pu.x, pu.y, glowR);
+    grad.addColorStop(0, "rgba(255,255,200,0.9)");
+    grad.addColorStop(1, "rgba(255,255,200,0)");
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(pu.x,pu.y,glowR,0,Math.PI*2);
+    ctx.arc(pu.x, pu.y, glowR, 0, Math.PI*2);
     ctx.fill();
 
     ctx.drawImage(
       orbImg,
-      orbFrame*fs, 0, fs, fs,
-      pu.x-ORB_DRAW_SIZE,
-      pu.y-ORB_DRAW_SIZE,
-      ORB_DRAW_SIZE*2,
-      ORB_DRAW_SIZE*2
+      orbFrame * fs, 0, fs, fs,
+      pu.x - ORB_DRAW_SIZE,
+      pu.y - ORB_DRAW_SIZE,
+      ORB_DRAW_SIZE * 2,
+      ORB_DRAW_SIZE * 2
     );
   }
 }
 
+/* --- Monedas --- */
 function drawCoins() {
   if (!coinImg.complete || !coinImg.naturalWidth) return;
+
   coinAnim += 0.18;
   coinFrame = Math.floor(coinAnim) % COIN_COLS;
   const fs = COIN_FRAME_SIZE;
 
   for (const c of coinItems) {
     if (c.taken) continue;
+
     ctx.drawImage(
       coinImg,
-      coinFrame*fs, 0, fs, fs,
-      c.x-COIN_DRAW_SIZE,
-      c.y-COIN_DRAW_SIZE,
-      COIN_DRAW_SIZE*2,
-      COIN_DRAW_SIZE*2
+      coinFrame * fs, 0, fs, fs,
+      c.x - COIN_DRAW_SIZE,
+      c.y - COIN_DRAW_SIZE,
+      COIN_DRAW_SIZE * 2,
+      COIN_DRAW_SIZE * 2
     );
   }
 }
 
-function drawBirds() {
-  if (!birds.length || !birdImg.complete) return;
-
-  birdAnim += 0.25;
-  birdFrame = Math.floor(birdAnim) % BIRD_COLS;
-
-  for (const b of birds) {
-    ctx.drawImage(
-      birdImg,
-      birdFrame * BIRD_FRAME_W, 0, BIRD_FRAME_W, BIRD_FRAME_H,
-      b.x - BIRD_DRAW_W/2,
-      b.y - BIRD_DRAW_H/2,
-      BIRD_DRAW_W,
-      BIRD_DRAW_H
-    );
-  }
-}
-
+/* --- Thunder --- */
 function drawThunder() {
   let img = thunderImgs.idle;
   if (player.vy < -0.5) img = (player.vx >= 0 ? thunderImgs.jumpRight : thunderImgs.jumpLeft);
   else if (player.vy > 1) img = thunderImgs.fall;
+
   if (!img.complete) return;
 
-  const w=22,h=30;
-  ctx.drawImage(img, player.x-w/2, player.y-h+4, w, h);
+  const w = 22;
+  const h = 30;
+  ctx.drawImage(img, player.x - w/2, player.y - h + 4, w, h);
 
   if (player.invulnTimer > 0) {
     ctx.strokeStyle = "rgba(255,255,150,0.9)";
     ctx.beginPath();
-    ctx.arc(player.x, player.y-8, h/1.4, 0, Math.PI*2);
+    ctx.arc(player.x, player.y - 8, h/1.4, 0, Math.PI*2);
     ctx.stroke();
   }
 }
 
-// ======================= AVES ENEMIGAS =======================
+/* --- Aves (enemigo simple dibujado con código) --- */
 function spawnBird() {
-  birds.push({
-    x: 20 + Math.random()*(VW-40),
-    y: 24,                       // justo bajo el HUD
-    vy: 0.9 + Math.random()*0.7  // caen hacia abajo
-  });
+  const y   = 40;                         // sale debajo del HUD
+  const vy  = 35 + Math.random() * 20;    // cae hacia abajo
+  const x   = 30 + Math.random() * (VW - 60);
+  birds.push({ x, y, vy, w:18, h:10 });
 }
 
 function updateBirds(dt) {
-  for (const b of birds) b.y += b.vy * dt * 60;
+  for (const b of birds) {
+    b.y += b.vy * dt;
+  }
   birds = birds.filter(b => b.y < VH + 30);
 }
 
-// ======================= UPDATE =======================
+function drawBirds() {
+  for (const b of birds) {
+    const w = b.w, h = b.h;
+    ctx.save();
+    ctx.translate(b.x, b.y);
+
+    // ala izquierda
+    ctx.fillStyle = "#f6f1d3";
+    ctx.beginPath();
+    ctx.moveTo(-w*0.2, -h*0.1);
+    ctx.lineTo(-w*0.7, -h*0.5);
+    ctx.lineTo(-w*0.4,  h*0.3);
+    ctx.closePath();
+    ctx.fill();
+
+    // ala derecha
+    ctx.beginPath();
+    ctx.moveTo(w*0.1, -h*0.1);
+    ctx.lineTo(w*0.6, -h*0.5);
+    ctx.lineTo(w*0.3,  h*0.3);
+    ctx.closePath();
+    ctx.fill();
+
+    // cuerpo
+    ctx.fillStyle = "#ffd966";
+    ctx.fillRect(-w*0.2, -h*0.3, w*0.5, h*0.7);
+
+    // cabeza
+    ctx.fillStyle = "#ffeb99";
+    ctx.beginPath();
+    ctx.arc(w*0.1, -h*0.25, h*0.35, 0, Math.PI*2);
+    ctx.fill();
+
+    // pico
+    ctx.fillStyle = "#ff9933";
+    ctx.beginPath();
+    ctx.moveTo(w*0.4, -h*0.25);
+    ctx.lineTo(w*0.75,-h*0.1);
+    ctx.lineTo(w*0.4,  h*0.05);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+}
+
+/* --- Meteoritos --- */
+function spawnSmallMeteor() {
+  const y = 40 + Math.random() * (VH - 140);
+  const speed = 1.2 + Math.random() * 0.8;
+  // aparece a la DERECHA y cruza hacia la izquierda
+  meteorSmalls.push({
+    x: VW + 40,
+    y,
+    vx: -speed * 60,
+    r: 10
+  });
+}
+
+function spawnBigMeteor() {
+  const y = 40 + Math.random() * (VH - 140);
+  const speed = 1.0 + Math.random() * 0.7;
+  // aparece a la IZQUIERDA y cruza hacia la derecha
+  meteorBigs.push({
+    x: -40,
+    y,
+    vx: speed * 60,
+    r: 13
+  });
+}
+
+function updateMeteors(dt) {
+  for (const m of meteorSmalls) m.x += m.vx * dt;
+  for (const m of meteorBigs)   m.x += m.vx * dt;
+
+  meteorSmalls = meteorSmalls.filter(m => m.x > -60 && m.x < VW + 60);
+  meteorBigs   = meteorBigs.filter(m => m.x > -60 && m.x < VW + 60);
+}
+
+function drawSmallMeteors() {
+  if (!meteorSmallImg.complete || !meteorSmallImg.naturalWidth) return;
+
+  meteorSmallAnim += 0.2;
+  meteorSmallFrame = Math.floor(meteorSmallAnim) % METEOR_SMALL_COLS;
+
+  for (const m of meteorSmalls) {
+    ctx.drawImage(
+      meteorSmallImg,
+      meteorSmallFrame * METEOR_SMALL_FRAME_W, 0,
+      METEOR_SMALL_FRAME_W, METEOR_SMALL_FRAME_H,
+      m.x - METEOR_SMALL_DRAW_W/2,
+      m.y - METEOR_SMALL_DRAW_H/2,
+      METEOR_SMALL_DRAW_W,
+      METEOR_SMALL_DRAW_H
+    );
+  }
+}
+
+function drawBigMeteors() {
+  if (!meteorBigImg.complete || !meteorBigImg.naturalWidth) return;
+
+  meteorBigAnim += 0.22;
+  meteorBigFrame = Math.floor(meteorBigAnim) % METEOR_BIG_COLS;
+
+  for (const m of meteorBigs) {
+    ctx.drawImage(
+      meteorBigImg,
+      meteorBigFrame * METEOR_BIG_FRAME_W, 0,
+      METEOR_BIG_FRAME_W, METEOR_BIG_FRAME_H,
+      m.x - METEOR_BIG_DRAW_W/2,
+      m.y - METEOR_BIG_DRAW_H/2,
+      METEOR_BIG_DRAW_W,
+      METEOR_BIG_DRAW_H
+    );
+  }
+}
+
+/* =====================================================
+   [G] UPDATE PRINCIPAL
+   ===================================================== */
 function update(dt) {
   if (!player.alive) return;
 
@@ -575,8 +737,9 @@ function update(dt) {
     if (player.invulnTimer < 0) player.invulnTimer = 0;
   }
 
+  // plataformas MOVE
   for (const p of platforms) {
-    if (p.type === "move" && !p.broken) {
+    if (p.type === PLATFORM_TYPES.MOVE && !p.broken) {
       p.x += p.vx * dt * 60;
       if (p.x < p.rangeMin || p.x + p.w > p.rangeMax) {
         p.vx *= -1;
@@ -586,6 +749,7 @@ function update(dt) {
     }
   }
 
+  // movimiento lateral
   if (leftHeld && !rightHeld)  player.vx -= 0.26 * dt * 60;
   if (rightHeld && !leftHeld)  player.vx += 0.26 * dt * 60;
   if (!leftHeld && !rightHeld) player.vx *= world.friction;
@@ -597,10 +761,11 @@ function update(dt) {
   if (player.x < -player.r)     player.x = VW + player.r;
   if (player.x > VW + player.r) player.x = -player.r;
 
+  // gravedad
   player.vy += world.gravity * dt * 60;
   player.y  += player.vy * dt * 60;
 
-  // plataformas (todas 1 uso)
+  // colisión con plataformas (TODAS se rompen al usarse)
   if (player.vy > 0) {
     for (const p of platforms) {
       if (p.broken) continue;
@@ -608,42 +773,44 @@ function update(dt) {
         player.x > p.x - 7 &&
         player.x < p.x + p.w + 7 &&
         player.y + player.r > p.y &&
-        player.y + player.r < p.y + p.h + player.vy*dt*60 + 1
+        player.y + player.r < p.y + p.h + player.vy * dt * 60 + 1
       ) {
         player.y = p.y - player.r;
-        player.vy = (p.type === "boost") ? world.baseJumpVel * 1.6 : world.baseJumpVel;
+        player.vy = (p.type === PLATFORM_TYPES.BOOST)
+          ? world.baseJumpVel * 1.6
+          : world.baseJumpVel;
+
         p.broken = true;
       }
     }
   }
 
-  // cámara
-  let diff = 0;
+  // Cámara (si quieres bajar a Thunder en la pantalla,
+  // cambia el factor 0.55 por algo más alto, ej. 0.6)
   const cam = VH * 0.55;
   if (player.y < cam) {
-    diff = cam - player.y;
-    player.y += diff;
+    const diff = cam - player.y;
+    player.y  += diff;
     world.scrollY += diff;
+
     for (let p of platforms) p.y += diff;
     for (let pu of powerUps) pu.y += diff;
     for (let c of coinItems) c.y += diff;
   }
 
-  // aves: plano superpuesto (no se mueven con la cámara)
-  updateBirds(dt);
-
-  // reciclar plataformas
-  platforms = platforms.filter(p => p.y < VH+20 && !p.broken);
+  // Reciclado de plataformas
+  platforms = platforms.filter(p => p.y < VH + 20 && !p.broken);
   while (platforms.length < 22) {
     const topY = Math.min(...platforms.map(pl => pl.y));
-    const newY = topY - (16 + Math.random()*9);
-    const newX = 10 + Math.random()*(VW-60);
+    const newY = topY - (16 + Math.random() * 9);
+    const newX = 10 + Math.random() * (VW - 60);
     platforms.push(createPlatform(newX, newY));
   }
-  powerUps = powerUps.filter(pu => pu.y < VH+40 && !pu.taken);
-  coinItems = coinItems.filter(c => c.y < VH+40 && !c.taken);
 
-  // orbes
+  powerUps  = powerUps.filter(pu => pu.y < VH + 40 && !pu.taken);
+  coinItems = coinItems.filter(c => c.y  < VH + 40 && !c.taken);
+
+  // orbes (boost grande + invulnerabilidad)
   for (const pu of powerUps) {
     if (pu.taken) continue;
     const dx = pu.x - player.x;
@@ -664,50 +831,81 @@ function update(dt) {
     const rr = c.r + player.r;
     if (dx*dx + dy*dy < rr*rr) {
       c.taken = true;
-      coins++;
+      coins += 1;
     }
   }
 
-  // colisión con aves (matan siempre si no tiene orbe)
+  // enemigos: aves + meteoritos
+  updateBirds(dt);
+  updateMeteors(dt);
+
+  // colisiones enemigos (matan a Thunder si NO está invulnerable)
   if (player.invulnTimer <= 0) {
+    // aves
     for (const b of birds) {
       if (
-        player.x > b.x - BIRD_DRAW_W/2 &&
-        player.x < b.x + BIRD_DRAW_W/2 &&
-        player.y - player.r < b.y + BIRD_DRAW_H/2 &&
-        player.y + player.r > b.y - BIRD_DRAW_H/2
+        player.x > b.x - b.w/2 &&
+        player.x < b.x + b.w/2 &&
+        player.y - player.r < b.y + b.h/2 &&
+        player.y + player.r > b.y - b.h/2
       ) {
         player.alive = false;
-        break;
       }
+    }
+    // meteoritos
+    for (const m of meteorSmalls) {
+      const dx = m.x - player.x;
+      const dy = m.y - player.y;
+      if (dx*dx + dy*dy < (m.r + player.r)**2) player.alive = false;
+    }
+    for (const m of meteorBigs) {
+      const dx = m.x - player.x;
+      const dy = m.y - player.y;
+      if (dx*dx + dy*dy < (m.r + player.r)**2) player.alive = false;
     }
   }
 
-  const meters = Math.floor(world.scrollY / 10);
+  // metros / zonas / spawns por zona
+  const meters  = Math.floor(world.scrollY / 10);
   world.heightMeters = meters;
   const zoneNow = getZone(meters);
 
-  // aves sólo en Cielo
+  // Spawns por zona (todas superpuestas, no ligadas al scroll)
   if (zoneNow.key === "sky") {
     if (birds.length < 3 && Math.random() < 0.02) spawnBird();
+    meteorSmalls = [];
+    meteorBigs   = [];
+  } else if (zoneNow.key === "solar") {
+    birds = [];
+    if (meteorSmalls.length < 3 && Math.random() < 0.018) spawnSmallMeteor();
+    meteorBigs = [];
+  } else if (zoneNow.key === "milkyway" || zoneNow.key === "virgo" || zoneNow.key === "horizon") {
+    birds        = [];
+    meteorSmalls = [];
+    if (meteorBigs.length < 3 && Math.random() < 0.016) spawnBigMeteor();
   } else {
     birds = [];
+    meteorSmalls = [];
+    meteorBigs   = [];
   }
 
   hudScore.textContent = `${meters} m`;
   hudZone.textContent  = `Zona: ${zoneNow.name}`;
   hudCoins.textContent = coins;
 
-  if (player.y > VH+20) {
+  if (player.y > VH + 20) {
     player.alive = false;
     bestHeight = Math.max(bestHeight, world.scrollY);
-    hudBottom.textContent = `Mejor: ${Math.floor(bestHeight/10)} m · toca para reiniciar`;
+    hudBottom.textContent =
+      `Mejor: ${Math.floor(bestHeight/10)} m · toca para reiniciar`;
   }
 }
 
-// ======================= LOOP / RESET =======================
+/* =====================================================
+   [H] LOOP PRINCIPAL
+   ===================================================== */
 function gameLoop(ts) {
-  const dt = Math.min((ts-lastTime)/1000, 0.05);
+  const dt = Math.min((ts - lastTime) / 1000, 0.05);
   lastTime = ts;
 
   update(dt);
@@ -718,20 +916,27 @@ function gameLoop(ts) {
   drawPowerUps();
   drawCoins();
   drawBirds();
+  drawSmallMeteors();
+  drawBigMeteors();
   drawThunder();
 
   requestAnimationFrame(gameLoop);
 }
 
+/* =====================================================
+   [I] RESET / START
+   ===================================================== */
 function resetGame() {
-  world.scrollY = 0;
+  world.scrollY      = 0;
   world.heightMeters = 0;
-  player.x = VW/2;
-  player.y = VH-40;
+
+  player.x = VW / 2;
+  player.y = VH - 40;   // ⬅ posición vertical inicial de Thunder
   player.vx = 0;
   player.vy = -5;
   player.alive = true;
   player.invulnTimer = 0;
+
   coins = 0;
   initPlatforms();
   hudBottom.textContent = `Mejor: ${Math.floor(bestHeight/10)} m`;
