@@ -183,12 +183,50 @@ let   coinAnim = 0, coinFrame = 0;
 
 // Enemy bird (sprite sheet)
 const birdImg = new Image();
-const BIRD_COLS = 18;
-let   BIRD_FRAME_W = 92;
-let   BIRD_FRAME_H = 128;
+birdImg.src = "enemy-bird.png";
+
+// 16 frames horizontales en una tira de 2048x80
+const BIRD_COLS    = 16;
+const BIRD_FRAME_W = 128; // 2048 / 16
+const BIRD_FRAME_H = 80;  // alto real de la imagen
+
+// tamaño al que se dibuja en pantalla (puedes ajustarlo)
 const BIRD_DRAW_W = 34;
 const BIRD_DRAW_H = 26;
-let   birdAnim = 0, birdFrame = 0;
+
+let birdAnim  = 0;
+let birdFrame = 0;
+
+// lista de enemigos (ya la tienes creada en tu código)
+let birds = []; 
+
+function drawBirds() {
+  if (!birdImg.complete || !birdImg.naturalWidth) return;
+
+  // Animación: usamos solo un rango de frames “bonitos”
+  // por ejemplo del 2 al 11 para evitar giros feos
+  const START = 2;
+  const END   = 11;
+  const SPAN  = END - START + 1;
+
+  birdAnim += 0.18;
+  birdFrame = START + (Math.floor(birdAnim) % SPAN);
+
+  for (const b of birds) {
+    ctx.drawImage(
+      birdImg,
+      birdFrame * BIRD_FRAME_W, // sx
+      0,                        // sy
+      BIRD_FRAME_W,
+      BIRD_FRAME_H,
+      b.x - BIRD_DRAW_W / 2,    // dx
+      b.y - BIRD_DRAW_H / 2,    // dy
+      BIRD_DRAW_W,
+      BIRD_DRAW_H
+    );
+  }
+}
+
 
 // Thunder sprites
 const thunderImgs = {
