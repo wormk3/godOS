@@ -206,6 +206,16 @@ const METEOR_BIG_DRAW_W = 40;
 const METEOR_BIG_DRAW_H = 24;
 let   meteorBigAnim = 0, meteorBigFrame = 0;
 
+/* --- Enemy Bird sprite (enemy-bird.png) --- */
+const birdImg = new Image();
+const BIRD_COLS = 16;               // 2048 / 16 = 128 px por frame
+let   BIRD_FRAME_W = 128;
+let   BIRD_FRAME_H = 80;
+const BIRD_DRAW_W  = 34;            // tamaño en pantalla (puedes ajustar)
+const BIRD_DRAW_H  = 20;
+let   birdAnim  = 0;
+let   birdFrame = 0;
+
 /* --- Sprites Thunder --- */
 const thunderImgs = {
   idle:      new Image(),
@@ -240,6 +250,8 @@ async function preloadAssets() {
   tasks.push(load(coinImg, coinPath));
   tasks.push(load(meteorSmallImg, "enemy-meteor-small.png"));
   tasks.push(load(meteorBigImg,   "enemy-meteor-big.png"));
+  tasks.push(load(birdImg, "enemy-bird.png"));
+
 
   await Promise.all(tasks);
 
@@ -249,11 +261,15 @@ async function preloadAssets() {
     METEOR_SMALL_FRAME_W     = meteorSmallImg.naturalWidth / METEOR_SMALL_COLS;
     METEOR_SMALL_FRAME_H     = meteorSmallImg.naturalHeight;
   }
-  if (meteorBigImg.naturalWidth) {
-    METEOR_BIG_FRAME_W       = meteorBigImg.naturalWidth / METEOR_BIG_COLS;
-    METEOR_BIG_FRAME_H       = meteorBigImg.naturalHeight;
-  }
+if (meteorBigImg.naturalWidth) {
+  METEOR_BIG_FRAME_W = meteorBigImg.naturalWidth / METEOR_BIG_COLS;
+  METEOR_BIG_FRAME_H = meteorBigImg.naturalHeight;
+}
 
+if (birdImg.naturalWidth) {
+  BIRD_FRAME_W = birdImg.naturalWidth / BIRD_COLS;
+  BIRD_FRAME_H = birdImg.naturalHeight;
+}
   console.log("Assets cargados");
 }
 
@@ -594,64 +610,46 @@ function drawThunder() {
   }
 }
 
-/* --- Aves (enemigo simple dibujado con código) --- */
+/* --- Aves con sprite enemy-bird.png --- */
+// salen justo debajo del HUD y caen hacia abajo
 function spawnBird() {
-  const y   = 40;                         // sale debajo del HUD
-  const vy  = 35 + Math.random() * 20;    // cae hacia abajo
-  const x   = 30 + Math.random() * (VW - 60);
-  birds.push({ x, y, vy, w:18, h:10 });
+  const x  = 30 + Math.random() * (VW - 60);
+  const y  = 40;                         // debajo del HUD
+  const vy = 35 + Math.random() * 20;    // velocidad hacia abajo
+
+  birds.push({
+    x,
+    y,
+    vy,
+    w: BIRD_DRAW_W,
+    h: BIRD_DRAW_H
+  });
 }
 
+// NO se mueven con la cámara: son superpuestos
 function updateBirds(dt) {
   for (const b of birds) {
     b.y += b.vy * dt;
   }
-  birds = birds.filter(b => b.y < VH + 30);
+  birds = birds.filter(b => b.y < VH + 40);
 }
 
 function drawBirds() {
+  if (!birdImg.complete || !birdImg.naturalWidth) return;
+
+  birdAnim  += 0.2;
+  birdFrame  = Math.floor(birdAnim) % BIRD_COLS;
+
   for (const b of birds) {
-    const w = b.w, h = b.h;
-    ctx.save();
-    ctx.translate(b.x, b.y);
-
-    // ala izquierda
-    ctx.fillStyle = "#f6f1d3";
-    ctx.beginPath();
-    ctx.moveTo(-w*0.2, -h*0.1);
-    ctx.lineTo(-w*0.7, -h*0.5);
-    ctx.lineTo(-w*0.4,  h*0.3);
-    ctx.closePath();
-    ctx.fill();
-
-    // ala derecha
-    ctx.beginPath();
-    ctx.moveTo(w*0.1, -h*0.1);
-    ctx.lineTo(w*0.6, -h*0.5);
-    ctx.lineTo(w*0.3,  h*0.3);
-    ctx.closePath();
-    ctx.fill();
-
-    // cuerpo
-    ctx.fillStyle = "#ffd966";
-    ctx.fillRect(-w*0.2, -h*0.3, w*0.5, h*0.7);
-
-    // cabeza
-    ctx.fillStyle = "#ffeb99";
-    ctx.beginPath();
-    ctx.arc(w*0.1, -h*0.25, h*0.35, 0, Math.PI*2);
-    ctx.fill();
-
-    // pico
-    ctx.fillStyle = "#ff9933";
-    ctx.beginPath();
-    ctx.moveTo(w*0.4, -h*0.25);
-    ctx.lineTo(w*0.75,-h*0.1);
-    ctx.lineTo(w*0.4,  h*0.05);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.restore();
+    ctx.drawImage(
+      birdImg,
+      birdFrame * BIRD_FRAME_W, 0,
+      BIRD_FRAME_W, BIRD_FRAME_H,
+      b.x - b.w / 2,
+      b.y - b.h / 2,
+      b.w,
+      b.h
+    );
   }
 }
 
