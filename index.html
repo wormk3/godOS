@@ -20,7 +20,7 @@
     }
 
     .frame {
-      width: min(460px, 100vw);     /* ⬅ Tamaño visual del juego */
+      width: min(460px, 100vw);     /* Tamaño visual del juego */
       aspect-ratio: 9 / 16;
       border-radius: 16px;
       border: 2px solid #ff55dd;
@@ -53,9 +53,7 @@
       border-bottom: 1px solid #ff5577;
     }
 
-    .hud-left {
-      min-width: 72px;
-    }
+    .hud-left { min-width: 72px; }
 
     .hud-score {
       font-size: 20px;
@@ -188,7 +186,7 @@ let   COIN_FRAME_SIZE = 64;
 const COIN_DRAW_SIZE  = 9;
 let   coinAnim = 0, coinFrame = 0;
 
-/* --- Meteorito verde pequeño (enemy-meteor-small.png) --- */
+/* --- Meteorito verde pequeño --- */
 const meteorSmallImg = new Image();
 const METEOR_SMALL_COLS = 16;
 let   METEOR_SMALL_FRAME_W = 128;
@@ -197,7 +195,7 @@ const METEOR_SMALL_DRAW_W = 32;
 const METEOR_SMALL_DRAW_H = 18;
 let   meteorSmallAnim = 0, meteorSmallFrame = 0;
 
-/* --- Meteorito rojo grande (enemy-meteor-big.png) --- */
+/* --- Meteorito rojo grande --- */
 const meteorBigImg = new Image();
 const METEOR_BIG_COLS = 16;
 let   METEOR_BIG_FRAME_W = 128;
@@ -206,32 +204,15 @@ const METEOR_BIG_DRAW_W = 40;
 const METEOR_BIG_DRAW_H = 24;
 let   meteorBigAnim = 0, meteorBigFrame = 0;
 
+/* --- Sprite enemigo ave (enemy-bird.png) --- */
 const birdImg = new Image();
-birdImg.src = "enemy-bird.png";
-
-const BIRD_COLS = 16;     // número de frames
-const BIRD_FRAME_W = 96;  // ancho por frame
-const BIRD_FRAME_H = 60;  // alto por frame
-
-// tamaño con el que se dibuja en pantalla (puedes ajustarlo)
-const BIRD_DRAW_W = 34;
+const BIRD_COLS = 16;     // nº de frames
+let   BIRD_FRAME_W = 96;  // se recalcula al cargar
+let   BIRD_FRAME_H = 60;
+const BIRD_DRAW_W = 34;   // tamaño en pantalla
 const BIRD_DRAW_H = 21;
+let   birdAnim = 0, birdFrame = 0;
 
-// animación
-let birdAnim = 0;
-let birdFrame = 0;
-
-// cuando crees el pájaro, usa este tamaño para la colisión:
-function spawnBird() {
-  const y   = 40;
-  const vy  = 35 + Math.random() * 20;
-  const x   = 30 + Math.random() * (VW - 60);
-  birds.push({
-    x, y, vy,
-    w: BIRD_DRAW_W,
-    h: BIRD_DRAW_H
-  });
-}
 /* --- Sprites Thunder --- */
 const thunderImgs = {
   idle:      new Image(),
@@ -266,26 +247,26 @@ async function preloadAssets() {
   tasks.push(load(coinImg, coinPath));
   tasks.push(load(meteorSmallImg, "enemy-meteor-small.png"));
   tasks.push(load(meteorBigImg,   "enemy-meteor-big.png"));
-  tasks.push(load(birdImg, "enemy-bird.png"));
-
+  tasks.push(load(birdImg,        "enemy-bird.png"));
 
   await Promise.all(tasks);
 
-  if (orbImg.naturalWidth)   ORB_FRAME_SIZE          = orbImg.naturalWidth  / ORB_COLS;
-  if (coinImg.naturalWidth)  COIN_FRAME_SIZE         = coinImg.naturalWidth / COIN_COLS;
-  if (meteorSmallImg.naturalWidth) {
-    METEOR_SMALL_FRAME_W     = meteorSmallImg.naturalWidth / METEOR_SMALL_COLS;
-    METEOR_SMALL_FRAME_H     = meteorSmallImg.naturalHeight;
-  }
-if (meteorBigImg.naturalWidth) {
-  METEOR_BIG_FRAME_W = meteorBigImg.naturalWidth / METEOR_BIG_COLS;
-  METEOR_BIG_FRAME_H = meteorBigImg.naturalHeight;
-}
+  if (orbImg.naturalWidth)   ORB_FRAME_SIZE  = orbImg.naturalWidth  / ORB_COLS;
+  if (coinImg.naturalWidth)  COIN_FRAME_SIZE = coinImg.naturalWidth / COIN_COLS;
 
-if (birdImg.naturalWidth) {
-  BIRD_FRAME_W = birdImg.naturalWidth / BIRD_COLS;
-  BIRD_FRAME_H = birdImg.naturalHeight;
-}
+  if (meteorSmallImg.naturalWidth) {
+    METEOR_SMALL_FRAME_W = meteorSmallImg.naturalWidth / METEOR_SMALL_COLS;
+    METEOR_SMALL_FRAME_H = meteorSmallImg.naturalHeight;
+  }
+  if (meteorBigImg.naturalWidth) {
+    METEOR_BIG_FRAME_W   = meteorBigImg.naturalWidth / METEOR_BIG_COLS;
+    METEOR_BIG_FRAME_H   = meteorBigImg.naturalHeight;
+  }
+  if (birdImg.naturalWidth) {
+    BIRD_FRAME_W = birdImg.naturalWidth / BIRD_COLS;
+    BIRD_FRAME_H = birdImg.naturalHeight;
+  }
+
   console.log("Assets cargados");
 }
 
@@ -295,9 +276,7 @@ if (birdImg.naturalWidth) {
 const canvas = document.getElementById("game");
 const ctx    = canvas.getContext("2d");
 
-/* Tamaño lógico del mundo (NO lo cambies a menos que
-   sepas que estás haciendo). Si quieres ver a Thunder
-   más arriba/abajo, modifícalo en la sección [F]. */
+/* Mundo lógico */
 const VW = 180;
 const VH = 320;
 
@@ -328,7 +307,7 @@ const world = {
 /* ================= Thunder (jugador) ================= */
 const player = {
   x: VW / 2,
-  y: VH - 40,   // ⬅ Si quieres bajarlo/subirlo al inicio, cambia aquí
+  y: VH - 40,
   vx: 0,
   vy: 0,
   r: 6,
@@ -348,15 +327,14 @@ const PLATFORM_TYPES = {
 };
 
 let platforms     = [];
-let powerUps      = [];  // orbes eléctricos
+let powerUps      = [];
 let coinItems     = [];
-let birds         = [];  // enemigos pájaro (dibujados con código)
-let meteorSmalls  = [];  // meteorito verde
-let meteorBigs    = [];  // meteorito rojo
+let birds         = [];  // enemigos pájaro
+let meteorSmalls  = [];
+let meteorBigs    = [];
 
 /* ================= ZONAS / ALTURA ================= */
 function getZone(height) {
-  // Juego ajustado a ~20,000 m
   if (height <   300) return { key:"garden",   name:"Jardín" };
   if (height <  2500) return { key:"sky",      name:"Cielo" };
   if (height <  6000) return { key:"solar",    name:"Sistema Solar" };
@@ -373,7 +351,6 @@ function createPlatform(x, y) {
   let type = PLATFORM_TYPES.NORMAL;
   const r = Math.random();
 
-  // Tipos según altura
   if (difficulty > 6000 && r < 0.18)       type = PLATFORM_TYPES.SMALL;
   else if (difficulty > 4000 && r < 0.12)  type = PLATFORM_TYPES.BREAK;
   else if (difficulty > 2000 && r < 0.14)  type = PLATFORM_TYPES.MOVE;
@@ -392,7 +369,6 @@ function createPlatform(x, y) {
     broken: false
   };
 
-  // Moneda
   if (Math.random() < 0.18) {
     coinItems.push({
       x: x + plat.w / 2,
@@ -402,7 +378,6 @@ function createPlatform(x, y) {
     });
   }
 
-  // Orbe (no en jardín)
   const z = getZone(world.heightMeters);
   if (z.key !== "garden" && Math.random() < 0.06) {
     powerUps.push({
@@ -627,22 +602,19 @@ function drawThunder() {
 }
 
 /* --- Aves con sprite enemy-bird.png --- */
-// salen justo debajo del HUD y caen hacia abajo
 function spawnBird() {
   const x  = 30 + Math.random() * (VW - 60);
   const y  = 40;                         // debajo del HUD
-  const vy = 35 + Math.random() * 20;    // velocidad hacia abajo
+  const vy = 35 + Math.random() * 20;    // hacia abajo
 
   birds.push({
-    x,
-    y,
-    vy,
+    x, y, vy,
     w: BIRD_DRAW_W,
     h: BIRD_DRAW_H
   });
 }
 
-// NO se mueven con la cámara: son superpuestos
+// superpuestas: NO se mueven con la cámara
 function updateBirds(dt) {
   for (const b of birds) {
     b.y += b.vy * dt;
@@ -657,15 +629,15 @@ function drawBirds() {
   birdFrame = Math.floor(birdAnim) % BIRD_COLS;
 
   for (const b of birds) {
-  ctx.drawImage(
-  birdImg,
-  birdFrame * BIRD_FRAME_W, 0,
-  BIRD_FRAME_W, BIRD_FRAME_H,
-  b.x - BIRD_DRAW_W/2,
-  b.y - BIRD_DRAW_H/2,
-  BIRD_DRAW_W,
-  BIRD_DRAW_H
-  );
+    ctx.drawImage(
+      birdImg,
+      birdFrame * BIRD_FRAME_W, 0,
+      BIRD_FRAME_W, BIRD_FRAME_H,
+      b.x - BIRD_DRAW_W/2,
+      b.y - BIRD_DRAW_H/2,
+      BIRD_DRAW_W,
+      BIRD_DRAW_H
+    );
   }
 }
 
@@ -673,7 +645,6 @@ function drawBirds() {
 function spawnSmallMeteor() {
   const y = 40 + Math.random() * (VH - 140);
   const speed = 1.2 + Math.random() * 0.8;
-  // aparece a la DERECHA y cruza hacia la izquierda
   meteorSmalls.push({
     x: VW + 40,
     y,
@@ -685,7 +656,6 @@ function spawnSmallMeteor() {
 function spawnBigMeteor() {
   const y = 40 + Math.random() * (VH - 140);
   const speed = 1.0 + Math.random() * 0.7;
-  // aparece a la IZQUIERDA y cruza hacia la derecha
   meteorBigs.push({
     x: -40,
     y,
@@ -779,31 +749,29 @@ function update(dt) {
   player.vy += world.gravity * dt * 60;
   player.y  += player.vy * dt * 60;
 
-  // colisión con plataformas (solo las BREAK se rompen)
-if (player.vy > 0) {
-  for (const p of platforms) {
-    if (p.broken) continue;
-    if (
-      player.x > p.x - 7 &&
-      player.x < p.x + p.w + 7 &&
-      player.y + player.r > p.y &&
-      player.y + player.r < p.y + p.h + player.vy * dt * 60 + 1
-    ) {
-      player.y = p.y - player.r;
-      player.vy = (p.type === PLATFORM_TYPES.BOOST)
-        ? world.baseJumpVel * 1.6
-        : world.baseJumpVel;
+  // colisión con plataformas (solo BREAK se rompen)
+  if (player.vy > 0) {
+    for (const p of platforms) {
+      if (p.broken) continue;
+      if (
+        player.x > p.x - 7 &&
+        player.x < p.x + p.w + 7 &&
+        player.y + player.r > p.y &&
+        player.y + player.r < p.y + p.h + player.vy * dt * 60 + 1
+      ) {
+        player.y = p.y - player.r;
+        player.vy = (p.type === PLATFORM_TYPES.BOOST)
+          ? world.baseJumpVel * 1.6
+          : world.baseJumpVel;
 
-      // solo rompibles las plataformas BREAK
-      if (p.type === PLATFORM_TYPES.BREAK) {
-        p.broken = true;
+        if (p.type === PLATFORM_TYPES.BREAK) {
+          p.broken = true;
+        }
       }
     }
   }
-}
 
-  // Cámara (si quieres bajar a Thunder en la pantalla,
-  // cambia el factor 0.55 por algo más alto, ej. 0.6)
+  // cámara (bajar Thunder = subir este factor)
   const cam = VH * 0.55;
   if (player.y < cam) {
     const diff = cam - player.y;
@@ -815,7 +783,7 @@ if (player.vy > 0) {
     for (let c of coinItems) c.y += diff;
   }
 
-  // Reciclado de plataformas
+  // reciclado de plataformas
   platforms = platforms.filter(p => p.y < VH + 20 && !p.broken);
   while (platforms.length < 22) {
     const topY = Math.min(...platforms.map(pl => pl.y));
@@ -827,7 +795,7 @@ if (player.vy > 0) {
   powerUps  = powerUps.filter(pu => pu.y < VH + 40 && !pu.taken);
   coinItems = coinItems.filter(c => c.y  < VH + 40 && !c.taken);
 
-  // orbes (boost grande + invulnerabilidad)
+  // orbes
   for (const pu of powerUps) {
     if (pu.taken) continue;
     const dx = pu.x - player.x;
@@ -852,13 +820,12 @@ if (player.vy > 0) {
     }
   }
 
-  // enemigos: aves + meteoritos
+  // enemigos
   updateBirds(dt);
   updateMeteors(dt);
 
-  // colisiones enemigos (matan a Thunder si NO está invulnerable)
+  // colisiones enemigos (si no está invulnerable)
   if (player.invulnTimer <= 0) {
-    // aves
     for (const b of birds) {
       if (
         player.x > b.x - b.w/2 &&
@@ -869,25 +836,27 @@ if (player.vy > 0) {
         player.alive = false;
       }
     }
-    // meteoritos
     for (const m of meteorSmalls) {
       const dx = m.x - player.x;
       const dy = m.y - player.y;
-      if (dx*dx + dy*dy < (m.r + player.r)**2) player.alive = false;
+      if (dx*dx + dy*dy < (m.r + player.r) * (m.r + player.r)) {
+        player.alive = false;
+      }
     }
     for (const m of meteorBigs) {
       const dx = m.x - player.x;
       const dy = m.y - player.y;
-      if (dx*dx + dy*dy < (m.r + player.r)**2) player.alive = false;
+      if (dx*dx + dy*dy < (m.r + player.r) * (m.r + player.r)) {
+        player.alive = false;
+      }
     }
   }
 
-  // metros / zonas / spawns por zona
+  // metros / zonas / spawns
   const meters  = Math.floor(world.scrollY / 10);
   world.heightMeters = meters;
   const zoneNow = getZone(meters);
 
-  // Spawns por zona (todas superpuestas, no ligadas al scroll)
   if (zoneNow.key === "sky") {
     if (birds.length < 3 && Math.random() < 0.02) spawnBird();
     meteorSmalls = [];
@@ -948,7 +917,7 @@ function resetGame() {
   world.heightMeters = 0;
 
   player.x = VW / 2;
-  player.y = VH - 40;   // ⬅ posición vertical inicial de Thunder
+  player.y = VH - 40;
   player.vx = 0;
   player.vy = -5;
   player.alive = true;
