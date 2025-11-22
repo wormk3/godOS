@@ -1,154 +1,153 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <title>Thunder Ascension</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta charset="UTF-8" />
+  <title>Thunder Ascension</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
 
-  <style>
-    :root { color-scheme: dark; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #05030a;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: #fff;
-    }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #05030a;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #fff;
+    }
 
-    .frame {
-      width: min(460px, 100vw);
-      aspect-ratio: 9 / 16;
-      border-radius: 16px;
-      border: 2px solid #ff55dd;
-      box-shadow: 0 0 32px rgba(255,85,221,0.4);
-      overflow: hidden;
-      background: #000;
-      position: relative;
-      touch-action: none;
-    }
+    .frame {
+      width: min(460px, 100vw);
+      aspect-ratio: 9 / 16;
+      border-radius: 16px;
+      border: 2px solid #ff55dd;
+      box-shadow: 0 0 32px rgba(255,85,221,0.4);
+      overflow: hidden;
+      background: #000;
+      position: relative;
+      touch-action: none;
+    }
 
-    canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
 
-    /* HUD SUPERIOR ROJO */
-    .hud-top {
-      position: absolute;
-      top: 4px;
-      left: 0;
-      width: 100%;
-      pointer-events: none;
-      padding: 4px 10px;
-      background: linear-gradient(90deg, #2b000c, #410016, #2b000c);
-      display: flex;
-      align-items: center;
-      text-shadow: 0 0 4px #000;
-      z-index: 10;
-      border-bottom: 1px solid #ff5577;
-    }
+    /* HUD SUPERIOR ROJO */
+    .hud-top {
+      position: absolute;
+      top: 4px;
+      left: 0;
+      width: 100%;
+      pointer-events: none;
+      padding: 4px 10px;
+      background: linear-gradient(90deg, #2b000c, #410016, #2b000c);
+      display: flex;
+      align-items: center;
+      text-shadow: 0 0 4px #000;
+      z-index: 10;
+      border-bottom: 1px solid #ff5577;
+    }
 
-    .hud-left {
-      min-width: 72px;
-    }
+    .hud-left {
+      min-width: 72px;
+    }
 
-    .hud-score {
-      font-size: 20px;
-      font-weight: 800;
-      letter-spacing: 1px;
-      color: #ff3344;  /* metros en rojo */
-    }
+    .hud-score {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: #ff3344;  /* metros en rojo */
+    }
 
-    .hud-center {
-      flex: 1;
-      text-align: center;
-      line-height: 1.1;
-    }
+    .hud-center {
+      flex: 1;
+      text-align: center;
+      line-height: 1.1;
+    }
 
-    .hud-title {
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: #ffe5e5;
-    }
+    .hud-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #ffe5e5;
+    }
 
-    .hud-zone {
-      font-size: 11px;
-      opacity: 0.9;
-      color: #ffb3c1;
-    }
+    .hud-zone {
+      font-size: 11px;
+      opacity: 0.9;
+      color: #ffb3c1;
+    }
 
-    .hud-coins {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 15px;
-      font-weight: 700;
-      color: #ffd84a;   /* contador amarillo */
-      min-width: 48px;
-      justify-content: flex-end;
-    }
+    .hud-coins {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffd84a;   /* contador amarillo */
+      min-width: 48px;
+      justify-content: flex-end;
+    }
 
-    .coin-icon {
-      width: 16px;
-      height: 16px;
-      image-rendering: pixelated;
-      object-fit: contain;
-    }
+    .coin-icon {
+      width: 16px;
+      height: 16px;
+      image-rendering: pixelated;
+      object-fit: contain;
+    }
 
-    /* HUD INFERIOR */
-    .hud-bottom {
-      position: absolute;
-      bottom: 4px;
-      left: 0;
-      width: 100%;
-      text-align: center;
-      font-size: 12px;
-      pointer-events: none;
-      text-shadow: 0 0 4px #000;
-    }
+    /* HUD INFERIOR */
+    .hud-bottom {
+      position: absolute;
+      bottom: 4px;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      font-size: 12px;
+      pointer-events: none;
+      text-shadow: 0 0 4px #000;
+    }
 
-    .hint {
-      position: absolute;
-      bottom: 26px;
-      width: 100%;
-      text-align: center;
-      font-size: 10px;
-      opacity: 0.75;
-      pointer-events: none;
-    }
-  </style>
+    .hint {
+      position: absolute;
+      bottom: 26px;
+      width: 100%;
+      text-align: center;
+      font-size: 10px;
+      opacity: 0.75;
+      pointer-events: none;
+    }
+  </style>
 </head>
 <body>
 
 <div class="frame">
-  <div class="hud-top">
-    <div class="hud-left">
-      <div id="hudScore" class="hud-score">0 m</div>
-    </div>
+  <div class="hud-top">
+    <div class="hud-left">
+      <div id="hudScore" class="hud-score">0 m</div>
+    </div>
 
-    <div class="hud-center">
-      <div class="hud-title">THUNDER ASCENSION</div>
-      <div id="hudZone" class="hud-zone">Zona: Jardín</div>
-    </div>
+    <div class="hud-center">
+      <div class="hud-title">THUNDER ASCENSION</div>
+      <div id="hudZone" class="hud-zone">Zona: Jardín</div>
+    </div>
 
-    <div class="hud-coins">
-      <!-- icono fijo del HUD -->
-      <img src="thunder-coin-hud.png" class="coin-icon" alt="coin" />
-      <span id="hudCoins">0</span>
-    </div>
-  </div>
+    <div class="hud-coins">
+            <img src="thunder-coin-hud.png" class="coin-icon" alt="coin" />
+      <span id="hudCoins">0</span>
+    </div>
+  </div>
 
-  <canvas id="game"></canvas>
+  <canvas id="game"></canvas>
 
-  <div class="hint">PC: Flechas ← → · Móvil: toca izquierda/derecha</div>
-  <div class="hud-bottom" id="hudBottom">Mejor: 0 m</div>
+  <div class="hint">PC: Flechas ← → · Móvil: toca izquierda/derecha</div>
+  <div class="hud-bottom" id="hudBottom">Mejor: 0 m</div>
 </div>
 
 <script>
@@ -156,686 +155,510 @@
 // CARGA DE RECURSOS
 // ======================================================
 const bgImgs = {
-  garden: new Image(),
-  sky: new Image(),
-  solar: new Image(),
-  milkyway: new Image(),
-  virgo: new Image(),
-  horizon: new Image()
+  garden: new Image(),
+  sky: new Image(),
+  solar: new Image(),
+  milkyway: new Image(),
+  virgo: new Image(),
+  horizon: new Image()
 };
 
 const bgPaths = {
-  garden: "bg-garden.jpeg",
-  sky: "bg-sky.jpeg",
-  solar: "bg-solar.jpeg",
-  milkyway: "bg-milkyway.JPG",
-  virgo: "bg-virgo.JPG",
-  horizon: "bg-horizon.JPG"
+  garden: "bg-garden.jpeg",
+  sky: "bg-sky.jpeg",
+  solar: "bg-solar.jpeg",
+  milkyway: "bg-milkyway.JPG",
+  virgo: "bg-virgo.JPG",
+  horizon: "bg-horizon.JPG"
 };
 
 // Orbe eléctrico (sprite sheet)
-const orbImg  = new Image();
+const orbImg  = new Image();
 const orbPath = "orb-electric.png";
 const ORB_COLS = 8;
-let   ORB_FRAME_SIZE = 128;
-const ORB_DRAW_SIZE  = 8;
-let   orbAnim = 0;
-let   orbFrame = 0;
+let   ORB_FRAME_SIZE = 128;
+const ORB_DRAW_SIZE  = 8;
+let   orbAnim = 0;
+let   orbFrame = 0;
 
 // Moneda Thunder (sprite sheet 9 frames)
-const coinImg  = new Image();
+const coinImg  = new Image();
 const coinPath = "thunder-coin.PNG";
 const COIN_COLS = 9;
-let   COIN_FRAME_SIZE = 64;
-const COIN_DRAW_SIZE  = 9;
-let   coinAnim = 0;
-let   coinFrame = 0;
+let   COIN_FRAME_SIZE = 64;
+const COIN_DRAW_SIZE  = 9;
+let   coinAnim = 0;
+let   coinFrame = 0;
+
+// --------- ENEMY BIRD - Código del ave modificado ---------
+const birdImg = new Image();
+birdImg.src = "enemy-bird.png";
+
+const BIRD_COLS = 18;
+// Asumimos que el sprite sheet es una tira horizontal de 18 frames de 92x128.
+let BIRD_FRAME_W = 92;
+let BIRD_FRAME_H = 128;
+const BIRD_DRAW_W = 32;  // Tamaño en el canvas
+const BIRD_DRAW_H = 32;
+
+let birdAnim = 0;
+let birdFrame = 0;
+
+let birds = []; // lista de enemigos
+// --------------------------------------------------------
 
 // Sprites Thunder
 const thunderImgs = {
-  idle: new Image(),
-  jumpRight: new Image(),
-  jumpLeft: new Image(),
-  fall: new Image()
+  idle: new Image(),
+  jumpRight: new Image(),
+  jumpLeft: new Image(),
+  fall: new Image()
 };
 
 const thunderPaths = {
-  idle: "thunder-idle.png",
-  jumpRight: "thunder-jump_right.png",
-  jumpLeft: "thunder_jump_left.png",
-  fall: "thunder_fall.png"
+  idle: "thunder-idle.png",
+  jumpRight: "thunder-jump_right.png",
+  jumpLeft: "thunder_jump_left.png",
+  fall: "thunder_fall.png"
 };
 
 async function preloadAssets() {
-  const tasks = [];
-  function load(img, path) {
-    return new Promise(res => {
-      img.onload = res;
-      img.onerror = res;
-      img.src = path;
-    });
-  }
+  const tasks = [];
+  function load(img, path) {
+    return new Promise(res => {
+      img.onload = res;
+      img.onerror = res;
+      img.src = path;
+    });
+  }
 
-  for (let k in bgPaths)      tasks.push(load(bgImgs[k], bgPaths[k]));
-  for (let k in thunderPaths) tasks.push(load(thunderImgs[k], thunderPaths[k]));
-  tasks.push(load(orbImg,  orbPath));
-  tasks.push(load(coinImg, coinPath));
+  for (let k in bgPaths)      tasks.push(load(bgImgs[k], bgPaths[k]));
+  for (let k in thunderPaths) tasks.push(load(thunderImgs[k], thunderPaths[k]));
+  tasks.push(load(orbImg,  orbPath));
+  tasks.push(load(coinImg, coinPath));
+  tasks.push(load(birdImg, birdImg.src)); // Cargar la imagen del ave
 
-  await Promise.all(tasks);
+  await Promise.all(tasks);
 
-  if (orbImg.naturalWidth)  ORB_FRAME_SIZE  = orbImg.naturalWidth  / ORB_COLS;
-  if (coinImg.naturalWidth) COIN_FRAME_SIZE = coinImg.naturalWidth / COIN_COLS;
+  if (orbImg.naturalWidth)  ORB_FRAME_SIZE  = orbImg.naturalWidth  / ORB_COLS;
+  if (coinImg.naturalWidth) COIN_FRAME_SIZE = coinImg.naturalWidth / COIN_COLS;
+  // Ajustar el tamaño del frame del ave si la carga es exitosa
+  if (birdImg.naturalWidth) {
+    BIRD_FRAME_W = birdImg.naturalWidth / BIRD_COLS;
+    BIRD_FRAME_H = birdImg.naturalHeight;
+  }
 
-  console.log("Assets cargados");
+  console.log("Assets cargados");
 }
 
 // ======================================================
 // VARIABLES DEL JUEGO
 // ======================================================
+// ... (resto de variables intactas)
+
 const canvas = document.getElementById("game");
-const ctx    = canvas.getContext("2d");
+const ctx    = canvas.getContext("2d");
 
 const VW = 180;
 const VH = 320;
 
-canvas.width  = VW * 1.5;
+canvas.width  = VW * 1.5;
 canvas.height = VH * 1.5;
 ctx.scale(1.5, 1.5);
 
-const hudScore  = document.getElementById("hudScore");
-const hudZone   = document.getElementById("hudZone");
-const hudCoins  = document.getElementById("hudCoins");
+const hudScore  = document.getElementById("hudScore");
+const hudZone   = document.getElementById("hudZone");
+const hudCoins  = document.getElementById("hudCoins");
 const hudBottom = document.getElementById("hudBottom");
 
-let coins      = 0;
-let lastTime   = 0;
-let leftHeld   = false;
-let rightHeld  = false;
+let coins      = 0;
+let lastTime   = 0;
+let leftHeld   = false;
+let rightHeld  = false;
 let bestHeight = 0;
 
 const world = {
-  gravity: 0.4,
-  baseJumpVel: -8.5,
-  maxVX: 2.4,
-  friction: 0.9,
-  scrollY: 0,
-  heightMeters: 0
+  gravity: 0.4,
+  baseJumpVel: -8.5,
+  maxVX: 2.4,
+  friction: 0.9,
+  scrollY: 0,
+  heightMeters: 0
 };
 
 const player = {
-  x: VW / 2,
-  y: VH - 40,
-  vx: 0,
-  vy: 0,
-  r: 6,
-  alive: true,
-  invulnTimer: 0   // segundos de invulnerabilidad
+  x: VW / 2,
+  y: VH - 40,
+  vx: 0,
+  vy: 0,
+  r: 6,
+  alive: true,
+  invulnTimer: 0   // segundos de invulnerabilidad
 };
 
 let platforms = [];
-let powerUps  = []; // orbes eléctricos
+let powerUps  = []; // orbes eléctricos
 let coinItems = []; // monedas
-let birds     = []; // aves en el cielo
+// El array birds ya está declarado arriba, lo mantengo aquí por claridad.
+// let birds     = []; // aves en el cielo
 
 // ======================================================
 // ZONAS (ajustadas hasta ~20,000 m)
 // ======================================================
 function getZone(height) {
-  if (height <   300) return { key:"garden",   name:"Jardín" };
-  if (height <  2500) return { key:"sky",      name:"Cielo" };
-  if (height <  6000) return { key:"solar",    name:"Sistema Solar" };
-  if (height < 11000) return { key:"milkyway", name:"Vía Láctea" };
-  if (height < 17000) return { key:"virgo",    name:"Supercúmulo de Virgo" };
-  return                 { key:"horizon",  name:"Ruptura del Ciberespacio" };
+  if (height <   300) return { key:"garden",   name:"Jardín" };
+  if (height <  2500) return { key:"sky",      name:"Cielo" };
+  if (height <  6000) return { key:"solar",    name:"Sistema Solar" };
+  if (height < 11000) return { key:"milkyway", name:"Vía Láctea" };
+  if (height < 17000) return { key:"virgo",    name:"Supercúmulo de Virgo" };
+  return                 { key:"horizon",  name:"Ruptura del Ciberespacio" };
 }
+
+// ... (resto de funciones createPlatform y initPlatforms intactas)
 
 // ======================================================
 // PLATAFORMAS / TIPOS / MONEDAS / ORBES
 // ======================================================
 const PLATFORM_TYPES = {
-  NORMAL: "normal",
-  SMALL:  "small",
-  BREAK:  "break",
-  MOVE:   "move",
-  BOOST:  "boost"
+  NORMAL: "normal",
+  SMALL:  "small",
+  BREAK:  "break",
+  MOVE:   "move",
+  BOOST:  "boost"
 };
 
 function createPlatform(x, y) {
-  const difficulty = world.heightMeters;
-  let type = PLATFORM_TYPES.NORMAL;
-  const r = Math.random();
+  const difficulty = world.heightMeters;
+  let type = PLATFORM_TYPES.NORMAL;
+  const r = Math.random();
 
-  // tipos según altura
-  if (difficulty > 6000 && r < 0.18)       type = PLATFORM_TYPES.SMALL;
-  else if (difficulty > 4000 && r < 0.12)  type = PLATFORM_TYPES.BREAK;
-  else if (difficulty > 2000 && r < 0.14)  type = PLATFORM_TYPES.MOVE;
-  else if (r < 0.08)                       type = PLATFORM_TYPES.BOOST;
+  // tipos según altura
+  if (difficulty > 6000 && r < 0.18)       type = PLATFORM_TYPES.SMALL;
+  else if (difficulty > 4000 && r < 0.12)  type = PLATFORM_TYPES.BREAK;
+  else if (difficulty > 2000 && r < 0.14)  type = PLATFORM_TYPES.MOVE;
+  else if (r < 0.08)                       type = PLATFORM_TYPES.BOOST;
 
-  const wBase = 32;
+  const wBase = 32;
 
-  const plat = {
-    x,
-    y,
-    w: (type === PLATFORM_TYPES.SMALL ? 22 : wBase),
-    h: 5,
-    type,
-    vx: (type === PLATFORM_TYPES.MOVE ? (Math.random() < 0.5 ? -0.45 : 0.45) : 0),
-    rangeMin: 10,
-    rangeMax: VW - 10,
-    broken: false
-  };
+  const plat = {
+    x,
+    y,
+    w: (type === PLATFORM_TYPES.SMALL ? 22 : wBase),
+    h: 5,
+    type,
+    vx: (type === PLATFORM_TYPES.MOVE ? (Math.random() < 0.5 ? -0.45 : 0.45) : 0),
+    rangeMin: 10,
+    rangeMax: VW - 10,
+    broken: false
+  };
 
-  // Moneda
-  if (Math.random() < 0.18) {
-    coinItems.push({
-      x: x + plat.w / 2,
-      y: y - 12,
-      r: COIN_DRAW_SIZE * 0.25,
-      taken: false
-    });
-  }
+  // Moneda
+  if (Math.random() < 0.18) {
+    coinItems.push({
+      x: x + plat.w / 2,
+      y: y - 12,
+      r: COIN_DRAW_SIZE * 0.25,
+      taken: false
+    });
+  }
 
-  // Orbe eléctrico (no en Jardín)
-  const z = getZone(world.heightMeters);
-  if (z.key !== "garden" && Math.random() < 0.06) {
-    powerUps.push({
-      x: x + plat.w / 2,
-      y: y - 16,
-      r: ORB_DRAW_SIZE * 0.5,
-      taken: false
-    });
-  }
+  // Orbe eléctrico (no en Jardín)
+  const z = getZone(world.heightMeters);
+  if (z.key !== "garden" && Math.random() < 0.06) {
+    powerUps.push({
+      x: x + plat.w / 2,
+      y: y - 16,
+      r: ORB_DRAW_SIZE * 0.5,
+      taken: false
+    });
+  }
 
-  return plat;
+  return plat;
 }
 
 function initPlatforms() {
-  platforms = [];
-  powerUps  = [];
-  coinItems = [];
-  birds     = [];
+  platforms = [];
+  powerUps  = [];
+  coinItems = [];
+  birds     = [];
 
-  let y = VH - 20;
-  platforms.push(createPlatform(VW / 2 - 16, y));
+  let y = VH - 20;
+  platforms.push(createPlatform(VW / 2 - 16, y));
 
-  while (y > -VH) {
-    y -= 16 + Math.random() * 9; // un poco más juntas
-    const x = 10 + Math.random() * (VW - 60);
-    platforms.push(createPlatform(x, y));
-  }
+  while (y > -VH) {
+    y -= 16 + Math.random() * 9; // un poco más juntas
+    const x = 10 + Math.random() * (VW - 60);
+    platforms.push(createPlatform(x, y));
+  }
 }
+// ... (resto de CONTROLES y DIBUJO intactas)
 
 // ======================================================
-// CONTROLES
-// ======================================================
-function handleKeyboard(e, down) {
-  if (["ArrowLeft","a","A"].includes(e.key))  { leftHeld  = down; e.preventDefault(); }
-  if (["ArrowRight","d","D"].includes(e.key)) { rightHeld = down; e.preventDefault(); }
-  if (e.key === " " && !down && !player.alive) resetGame();
-}
-document.addEventListener("keydown", e => handleKeyboard(e, true));
-document.addEventListener("keyup",   e => handleKeyboard(e, false));
-
-function handleTouch(e) {
-  e.preventDefault();
-  if (e.touches.length === 0) {
-    leftHeld = rightHeld = false;
-    return;
-  }
-  let anyLeft = false, anyRight = false;
-  const rect = canvas.getBoundingClientRect();
-  for (const t of e.touches) {
-    const x = t.clientX - rect.left;
-    if (x < rect.width * 0.5) anyLeft = true;
-    else                      anyRight = true;
-  }
-  leftHeld  = anyLeft;
-  rightHeld = anyRight;
-}
-function clearTouch() {
-  leftHeld = rightHeld = false;
-}
-document.addEventListener("touchstart", handleTouch, { passive:false });
-document.addEventListener("touchmove",  handleTouch, { passive:false });
-document.addEventListener("touchend",   clearTouch,  { passive:false });
-document.addEventListener("touchcancel",clearTouch,  { passive:false });
-
-canvas.addEventListener("mousedown", e => {
-  const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  if (x < rect.width * 0.5) leftHeld = true;
-  else                      rightHeld = true;
-});
-window.addEventListener("mouseup", () => {
-  leftHeld = rightHeld = false;
-});
-
-// ======================================================
-// DIBUJO
-// ======================================================
-function drawBackground() {
-  const z   = getZone(world.heightMeters);
-  const img = bgImgs[z.key];
-
-  if (img.complete && img.naturalWidth) {
-    const iw = img.naturalWidth;
-    const ih = img.naturalHeight;
-    const ratio = iw / ih;
-    const screenRatio = VW / VH;
-
-    let dw, dh;
-    if (ratio > screenRatio) {
-      dh = VH;
-      dw = dh * ratio;
-    } else {
-      dw = VW;
-      dh = dw / ratio;
-    }
-
-    ctx.drawImage(img, (VW - dw) / 2, (VH - dh) / 2, dw, dh);
-  } else {
-    const grad = ctx.createLinearGradient(0,0,0,VH);
-    grad.addColorStop(0, "#050313");
-    grad.addColorStop(1, "#0f4a3a");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0,0,VW,VH);
-  }
-}
-
-function drawPlatforms() {
-  for (const p of platforms) {
-    if (p.broken) continue;
-
-    ctx.fillStyle = "#2a1238";
-    ctx.fillRect(p.x, p.y + 2, p.w, p.h);
-
-    let topColor    = "#ff8cff";
-    let bottomColor = "#d350ff";
-
-    if (p.type === PLATFORM_TYPES.BREAK) {
-      topColor    = "#ffb347";
-      bottomColor = "#ff6b3d";
-    } else if (p.type === PLATFORM_TYPES.MOVE) {
-      topColor    = "#8cd6ff";
-      bottomColor = "#5075ff";
-    } else if (p.type === PLATFORM_TYPES.BOOST) {
-      topColor    = "#c7ff6b";
-      bottomColor = "#5fd63a";
-    } else if (p.type === PLATFORM_TYPES.SMALL) {
-      topColor    = "#ff9cff";
-      bottomColor = "#e040ff";
-    }
-
-    const g = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.h);
-    g.addColorStop(0, topColor);
-    g.addColorStop(1, bottomColor);
-    ctx.fillStyle = g;
-    ctx.fillRect(p.x, p.y, p.w, p.h);
-
-    if (p.type === PLATFORM_TYPES.BREAK) {
-      ctx.strokeStyle = "rgba(80,0,0,0.6)";
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y);
-      ctx.lineTo(p.x + p.w, p.y + p.h);
-      ctx.moveTo(p.x + p.w*0.2, p.y);
-      ctx.lineTo(p.x + p.w*0.8, p.y + p.h);
-      ctx.stroke();
-    }
-  }
-}
-
-function drawPowerUps() {
-  if (!orbImg.complete || !orbImg.naturalWidth) return;
-
-  orbAnim += 0.16;
-  orbFrame = Math.floor(orbAnim) % ORB_COLS;
-  const fs = ORB_FRAME_SIZE;
-
-  for (const pu of powerUps) {
-    if (pu.taken) continue;
-
-    const glowR = ORB_DRAW_SIZE * 1.6;
-    const grad = ctx.createRadialGradient(pu.x, pu.y, 0, pu.x, pu.y, glowR);
-    grad.addColorStop(0, "rgba(255,255,200,0.9)");
-    grad.addColorStop(1, "rgba(255,255,200,0)");
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(pu.x, pu.y, glowR, 0, Math.PI*2);
-    ctx.fill();
-
-    ctx.drawImage(
-      orbImg,
-      orbFrame * fs, 0, fs, fs,
-      pu.x - ORB_DRAW_SIZE,
-      pu.y - ORB_DRAW_SIZE,
-      ORB_DRAW_SIZE * 2,
-      ORB_DRAW_SIZE * 2
-    );
-  }
-}
-
-function drawCoins() {
-  if (!coinImg.complete || !coinImg.naturalWidth) return;
-
-  coinAnim += 0.18;
-  coinFrame = Math.floor(coinAnim) % COIN_COLS;
-  const fs = COIN_FRAME_SIZE;
-
-  for (const c of coinItems) {
-    if (c.taken) continue;
-
-    ctx.drawImage(
-      coinImg,
-      coinFrame * fs, 0, fs, fs,
-      c.x - COIN_DRAW_SIZE,
-      c.y - COIN_DRAW_SIZE,
-      COIN_DRAW_SIZE * 2,
-      COIN_DRAW_SIZE * 2
-    );
-  }
-}
-
-function drawThunder() {
-  let img = thunderImgs.idle;
-  if (player.vy < -0.5) img = (player.vx >= 0 ? thunderImgs.jumpRight : thunderImgs.jumpLeft);
-  else if (player.vy > 1) img = thunderImgs.fall;
-  if (!img.complete) return;
-
-  const w = 22;
-  const h = 30;
-  ctx.drawImage(img, player.x - w/2, player.y - h + 4, w, h);
-
-  // pequeño brillo cuando está invulnerable
-  if (player.invulnTimer > 0) {
-    ctx.strokeStyle = "rgba(255,255,150,0.9)";
-    ctx.beginPath();
-    ctx.arc(player.x, player.y - 8, h/1.4, 0, Math.PI*2);
-    ctx.stroke();
-  }
-}
-
-// ======================================================
-// AVES EN EL CIELO
+// AVES EN EL CIELO - MODIFICADO
 // ======================================================
 function spawnBird() {
-  const baseY = 40 + Math.random() * (VH - 140);
-  const amp   = 14 + Math.random() * 10;
-  const speed = 0.8 + Math.random() * 0.6;
-  const x     = 30 + Math.random() * (VW - 60);
+  // Aparición en X aleatorio, siempre por encima de la vista (simula bajar desde el HUD)
+  const x     = 30 + Math.random() * (VW - 60);
+  // Velocidad vertical (independiente al juego). Rango: 1.5 a 3.0
+  const speedY = 1.5 + Math.random() * 1.5;
 
-  birds.push({
-    x,
-    y: baseY,
-    baseY,
-    amp,
-    phase: Math.random() * Math.PI * 2,
-    speed
-  });
+  birds.push({
+    x,
+    y: -20, // Comienza fuera de la pantalla, arriba.
+    vy: speedY,
+    animFrame: 0,
+    animTimer: 0
+  });
 }
 
 function updateBirds(dt, diffY) {
-  // mover con cámara
-  if (diffY !== 0) {
-    for (const b of birds) {
-      b.y     += diffY;
-      b.baseY += diffY;
-    }
-  }
-  // movimiento sin/cos
-  for (const b of birds) {
-    b.phase += b.speed * dt * 2 * Math.PI;
-    b.y = b.baseY + Math.sin(b.phase) * b.amp;
-  }
-  // limpiar las que se fueron muy abajo
-  birds = birds.filter(b => b.y < VH + 30);
+  const gameSpeed = dt * 60; // 60 FPS normalizado
+
+  // Ajustar por el scroll de la cámara
+  if (diffY !== 0) {
+    for (const b of birds) {
+      b.y += diffY;
+    }
+  }
+  
+  for (const b of birds) {
+    // Moverse verticalmente con su propia velocidad constante
+    b.y += b.vy * gameSpeed;
+
+    // Actualizar animación de alas (más lenta que 60 FPS)
+    b.animTimer += 0.2 * gameSpeed; // Ajustar la velocidad de la animación (e.g., 12 FPS)
+    b.animFrame = Math.floor(b.animTimer) % BIRD_COLS;
+  }
+  // Limpiar las que se fueron muy abajo
+  birds = birds.filter(b => b.y < VH + 30);
 }
 
 function drawBirds() {
-  if (!birds.length) return;
+  if (!birdImg.complete || !birdImg.naturalWidth) return;
 
-  for (const b of birds) {
-    const w = 18;
-    const h = 10;
-    ctx.save();
-    ctx.translate(b.x, b.y);
+  for (const b of birds) {
+    const fsW = BIRD_FRAME_W;
+    const fsH = BIRD_FRAME_H;
 
-    // alas
-    ctx.fillStyle = "#f6f1d3";
-    ctx.beginPath();
-    ctx.moveTo(-w*0.2, -h*0.1);
-    ctx.lineTo(-w*0.6, -h*0.3);
-    ctx.lineTo(-w*0.3,  h*0.2);
-    ctx.closePath();
-    ctx.fill();
-
-    // cuerpo
-    ctx.fillStyle = "#ffd966";
-    ctx.fillRect(-w*0.2, -h*0.3, w*0.5, h*0.7);
-
-    // cabeza
-    ctx.fillStyle = "#ffeb99";
-    ctx.beginPath();
-    ctx.arc(w*0.1, -h*0.2, h*0.4, 0, Math.PI*2);
-    ctx.fill();
-
-    // pico
-    ctx.fillStyle = "#ff9933";
-    ctx.beginPath();
-    ctx.moveTo(w*0.4, -h*0.2);
-    ctx.lineTo(w*0.75, -h*0.05);
-    ctx.lineTo(w*0.4,  h*0.1);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.restore();
-  }
+    ctx.drawImage(
+      birdImg,
+      b.animFrame * fsW, 0, fsW, fsH,
+      b.x - BIRD_DRAW_W/2, 
+      b.y - BIRD_DRAW_H/2, // Dibujar desde el centro
+      BIRD_DRAW_W,
+      BIRD_DRAW_H
+    );
+  }
 }
-
 // ======================================================
-// UPDATE
+// UPDATE - MODIFICADO (spawn de aves)
 // ======================================================
 function update(dt) {
-  if (!player.alive) return;
+  if (!player.alive) return;
 
-  if (player.invulnTimer > 0) {
-    player.invulnTimer -= dt;
-    if (player.invulnTimer < 0) player.invulnTimer = 0;
-  }
+  if (player.invulnTimer > 0) {
+    player.invulnTimer -= dt;
+    if (player.invulnTimer < 0) player.invulnTimer = 0;
+  }
 
-  // plataformas móviles
-  for (const p of platforms) {
-    if (p.type === PLATFORM_TYPES.MOVE && !p.broken) {
-      p.x += p.vx * dt * 60;
-      if (p.x < p.rangeMin || p.x + p.w > p.rangeMax) {
-        p.vx *= -1;
-        if (p.x < p.rangeMin)            p.x = p.rangeMin;
-        if (p.x + p.w > p.rangeMax)      p.x = p.rangeMax - p.w;
-      }
-    }
-  }
+  // plataformas móviles
+  for (const p of platforms) {
+    if (p.type === PLATFORM_TYPES.MOVE && !p.broken) {
+      p.x += p.vx * dt * 60;
+      if (p.x < p.rangeMin || p.x + p.w > p.rangeMax) {
+        p.vx *= -1;
+        if (p.x < p.rangeMin)            p.x = p.rangeMin;
+        if (p.x + p.w > p.rangeMax)      p.x = p.rangeMax - p.w;
+      }
+    }
+  }
 
-  // movimiento lateral
-  if (leftHeld && !rightHeld)  player.vx -= 0.26 * dt * 60;
-  if (rightHeld && !leftHeld)  player.vx += 0.26 * dt * 60;
-  if (!leftHeld && !rightHeld) player.vx *= world.friction;
+  // movimiento lateral
+  if (leftHeld && !rightHeld)  player.vx -= 0.26 * dt * 60;
+  if (rightHeld && !leftHeld)  player.vx += 0.26 * dt * 60;
+  if (!leftHeld && !rightHeld) player.vx *= world.friction;
 
-  if (player.vx > world.maxVX)  player.vx = world.maxVX;
-  if (player.vx < -world.maxVX) player.vx = -world.maxVX;
+  if (player.vx > world.maxVX)  player.vx = world.maxVX;
+  if (player.vx < -world.maxVX) player.vx = -world.maxVX;
 
-  player.x += player.vx * dt * 60;
-  if (player.x < -player.r)     player.x = VW + player.r;
-  if (player.x > VW + player.r) player.x = -player.r;
+  player.x += player.vx * dt * 60;
+  if (player.x < -player.r)     player.x = VW + player.r;
+  if (player.x > VW + player.r) player.x = -player.r;
 
-  // gravedad
-  player.vy += world.gravity * dt * 60;
-  player.y  += player.vy * dt * 60;
+  // gravedad
+  player.vy += world.gravity * dt * 60;
+  player.y  += player.vy * dt * 60;
 
-  // colisión con plataformas (todas se rompen al usarse)
-  if (player.vy > 0) {
-    for (const p of platforms) {
-      if (p.broken) continue;
-      if (
-        player.x > p.x - 7 &&
-        player.x < p.x + p.w + 7 &&
-        player.y + player.r > p.y &&
-        player.y + player.r < p.y + p.h + player.vy * dt * 60 + 1
-      ) {
-        player.y = p.y - player.r;
+  // colisión con plataformas (todas se rompen al usarse)
+  if (player.vy > 0) {
+    for (const p of platforms) {
+      if (p.broken) continue;
+      if (
+        player.x > p.x - 7 &&
+        player.x < p.x + p.w + 7 &&
+        player.y + player.r > p.y &&
+        player.y + player.r < p.y + p.h + player.vy * dt * 60 + 1
+      ) {
+        player.y = p.y - player.r;
 
-        if (p.type === PLATFORM_TYPES.BOOST) {
-          player.vy = world.baseJumpVel * 1.6;
-        } else {
-          player.vy = world.baseJumpVel;
-        }
+        if (p.type === PLATFORM_TYPES.BOOST) {
+          player.vy = world.baseJumpVel * 1.6;
+        } else {
+          player.vy = world.baseJumpVel;
+        }
 
-        // todas se rompen
-        p.broken = true;
-      }
-    }
-  }
+        // todas se rompen
+        p.broken = true;
+      }
+    }
+  }
 
-  // cámara
-  let diff = 0;
-  const cam = VH * 0.55;
-  if (player.y < cam) {
-    diff = cam - player.y;
-    player.y += diff;
-    world.scrollY += diff;
+  // cámara
+  let diff = 0;
+  const cam = VH * 0.55;
+  if (player.y < cam) {
+    diff = cam - player.y;
+    player.y += diff;
+    world.scrollY += diff;
 
-    for (let p of platforms) p.y += diff;
-    for (let pu of powerUps) pu.y += diff;
-    for (let c of coinItems) c.y += diff;
-  }
+    for (let p of platforms) p.y += diff;
+    for (let pu of powerUps) pu.y += diff;
+    for (let c of coinItems) c.y += diff;
+  }
 
-  // aves (se mueven + se ajustan con la cámara)
-  updateBirds(dt, diff);
+  // aves (se mueven + se ajustan con la cámara)
+  updateBirds(dt, diff);
 
-  // reciclar plataformas
-  platforms = platforms.filter(p => p.y < VH + 20 && !p.broken);
-  while (platforms.length < 22) {
-    const topY = Math.min(...platforms.map(pl => pl.y));
-    const newY = topY - (16 + Math.random() * 9);
-    const newX = 10 + Math.random() * (VW - 60);
-    platforms.push(createPlatform(newX, newY));
-  }
+  // reciclar plataformas
+  platforms = platforms.filter(p => p.y < VH + 20 && !p.broken);
+  while (platforms.length < 22) {
+    const topY = Math.min(...platforms.map(pl => pl.y));
+    const newY = topY - (16 + Math.random() * 9);
+    const newX = 10 + Math.random() * (VW - 60);
+    platforms.push(createPlatform(newX, newY));
+  }
 
-  powerUps = powerUps.filter(pu => pu.y < VH + 40 && !pu.taken);
-  coinItems = coinItems.filter(c => c.y < VH + 40 && !c.taken);
+  powerUps = powerUps.filter(pu => pu.y < VH + 40 && !pu.taken);
+  coinItems = coinItems.filter(c => c.y < VH + 40 && !c.taken);
 
-  // recoger orbes
-  for (const pu of powerUps) {
-    if (pu.taken) continue;
-    const dx = pu.x - player.x;
-    const dy = pu.y - player.y;
-    const rr = pu.r + player.r;
-    if (dx*dx + dy*dy < rr*rr) {
-      pu.taken = true;
-      // salto MUY fuerte + invulnerable
-      player.vy = world.baseJumpVel * 3.2;
-      player.invulnTimer = 2.5;
-    }
-  }
+  // recoger orbes
+  for (const pu of powerUps) {
+    if (pu.taken) continue;
+    const dx = pu.x - player.x;
+    const dy = pu.y - player.y;
+    const rr = pu.r + player.r;
+    if (dx*dx + dy*dy < rr*rr) {
+      pu.taken = true;
+      // salto MUY fuerte + invulnerable
+      player.vy = world.baseJumpVel * 3.2;
+      player.invulnTimer = 2.5;
+    }
+  }
 
-  // recoger monedas
-  for (const c of coinItems) {
-    if (c.taken) continue;
-    const dx = c.x - player.x;
-    const dy = c.y - player.y;
-    const rr = c.r + player.r;
-    if (dx*dx + dy*dy < rr*rr) {
-      c.taken = true;
-      coins += 1;
-    }
-  }
+  // recoger monedas
+  for (const c of coinItems) {
+    if (c.taken) continue;
+    const dx = c.x - player.x;
+    const dy = c.y - player.y;
+    const rr = c.r + player.r;
+    if (dx*dx + dy*dy < rr*rr) {
+      c.taken = true;
+      coins += 1;
+    }
+  }
 
-  // colisión con aves (solo si no está invulnerable)
-  if (player.invulnTimer <= 0) {
-    for (const b of birds) {
-      const bw = 18, bh = 10;
-      if (
-        player.x > b.x - bw/2 &&
-        player.x < b.x + bw/2 &&
-        player.y - player.r < b.y + bh/2 &&
-        player.y + player.r > b.y - bh/2
-      ) {
-        player.alive = false;
-        break;
-      }
-    }
-  }
+  // colisión con aves (solo si no está invulnerable)
+  if (player.invulnTimer <= 0) {
+    for (const b of birds) {
+      const bw = BIRD_DRAW_W, bh = BIRD_DRAW_H;
+      // Utilizamos una caja de colisión simple centrada en el ave para hacer el juego justo.
+      if (
+        player.x + player.r > b.x - bw/2 &&
+        player.x - player.r < b.x + bw/2 &&
+        player.y - player.r < b.y + bh/2 &&
+        player.y + player.r > b.y - bh/2
+      ) {
+        player.alive = false;
+        break;
+      }
+    }
+  }
 
-  const meters = Math.floor(world.scrollY / 10);
-  world.heightMeters = meters;
+  const meters = Math.floor(world.scrollY / 10);
+  world.heightMeters = meters;
 
-  // spawn de aves solo en Cielo, máx 3
-  const zoneNow = getZone(meters);
-  if (zoneNow.key === "sky") {
-    if (birds.length < 3 && Math.random() < 0.02) spawnBird();
-  } else {
-    birds = [];
-  }
+  // spawn de aves solo en Cielo, máx 3
+  const zoneNow = getZone(meters);
+  if (zoneNow.key === "sky") {
+    // Límite de 3 aves en pantalla, spawn en 1% de frames para evitar demasiados
+    if (birds.length < 3 && Math.random() < 0.01) spawnBird();
+  } else {
+    birds = [];
+  }
 
-  hudScore.textContent = `${meters} m`;
-  hudZone.textContent  = `Zona: ${zoneNow.name}`;
-  hudCoins.textContent = coins;
+  hudScore.textContent = `${meters} m`;
+  hudZone.textContent  = `Zona: ${zoneNow.name}`;
+  hudCoins.textContent = coins;
 
-  if (player.y > VH + 20) {
-    player.alive = false;
-    bestHeight = Math.max(bestHeight, world.scrollY);
-    hudBottom.textContent =
-      `Mejor: ${Math.floor(bestHeight/10)} m · toca para reiniciar`;
-  }
+  if (player.y > VH + 20) {
+    player.alive = false;
+    bestHeight = Math.max(bestHeight, world.scrollY);
+    hudBottom.textContent =
+      `Mejor: ${Math.floor(bestHeight/10)} m · toca para reiniciar`;
+  }
 }
+
+// ... (resto de LOOP PRINCIPAL y RESET / START intactas)
 
 // ======================================================
 // LOOP PRINCIPAL
 // ======================================================
 function gameLoop(ts) {
-  const dt = Math.min((ts - lastTime) / 1000, 0.05);
-  lastTime = ts;
+  const dt = Math.min((ts - lastTime) / 1000, 0.05);
+  lastTime = ts;
 
-  update(dt);
+  update(dt);
 
-  ctx.clearRect(0,0,VW,VH);
-  drawBackground();
-  drawPlatforms();
-  drawPowerUps();
-  drawCoins();
-  drawBirds();
-  drawThunder();
+  ctx.clearRect(0,0,VW,VH);
+  drawBackground();
+  drawPlatforms();
+  drawPowerUps();
+  drawCoins();
+  drawBirds();
+  drawThunder();
 
-  requestAnimationFrame(gameLoop);
+  requestAnimationFrame(gameLoop);
 }
 
 // ======================================================
 // RESET / START
 // ======================================================
 function resetGame() {
-  world.scrollY = 0;
-  world.heightMeters = 0;
+  world.scrollY = 0;
+  world.heightMeters = 0;
 
-  player.x = VW/2;
-  player.y = VH-40;
-  player.vx = 0;
-  player.vy = -5;
-  player.alive = true;
-  player.invulnTimer = 0;
+  player.x = VW/2;
+  player.y = VH-40;
+  player.vx = 0;
+  player.vy = -5;
+  player.alive = true;
+  player.invulnTimer = 0;
 
-  coins = 0;
-  initPlatforms();
-  hudBottom.textContent = `Mejor: ${Math.floor(bestHeight/10)} m`;
+  coins = 0;
+  initPlatforms();
+  hudBottom.textContent = `Mejor: ${Math.floor(bestHeight/10)} m`;
 }
 
 preloadAssets().then(() => {
-  resetGame();
-  requestAnimationFrame(gameLoop);
+  resetGame();
+  requestAnimationFrame(gameLoop);
 });
 
 canvas.addEventListener("click", () => {
-  if (!player.alive) {
-    bestHeight = Math.max(bestHeight, world.scrollY);
-    resetGame();
-  }
+  if (!player.alive) {
+    bestHeight = Math.max(bestHeight, world.scrollY);
+    resetGame();
+  }
 });
 </script>
 
