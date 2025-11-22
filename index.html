@@ -206,16 +206,32 @@ const METEOR_BIG_DRAW_W = 40;
 const METEOR_BIG_DRAW_H = 24;
 let   meteorBigAnim = 0, meteorBigFrame = 0;
 
-/* --- Enemy Bird sprite (enemy-bird.png) --- */
+// ================= ENEMY BIRD (SPRITE SHEET) =================
 const birdImg = new Image();
-const BIRD_COLS = 16;               // 2048 / 16 = 128 px por frame
-let   BIRD_FRAME_W = 128;
-let   BIRD_FRAME_H = 80;
-const BIRD_DRAW_W  = 34;            // tamaño en pantalla (puedes ajustar)
-const BIRD_DRAW_H  = 20;
-let   birdAnim  = 0;
-let   birdFrame = 0;
+birdImg.src = "enemy-bird.png";
 
+const BIRD_COLS = 16;          // 16 frames en la tira
+let   BIRD_FRAME_W = 128;      // 2048 / 16
+let   BIRD_FRAME_H = 80;       // altura real del PNG
+
+// tamaño al que lo dibujas en el juego (ajusta a gusto)
+const BIRD_DRAW_W = 40;
+const BIRD_DRAW_H = 25;
+
+let  birdAnim  = 0;
+let  birdFrame = 0;
+
+// cuando crees el pájaro, usa este tamaño para la colisión:
+function spawnBird() {
+  const y   = 40;
+  const vy  = 35 + Math.random() * 20;
+  const x   = 30 + Math.random() * (VW - 60);
+  birds.push({
+    x, y, vy,
+    w: BIRD_DRAW_W,
+    h: BIRD_DRAW_H
+  });
+}
 /* --- Sprites Thunder --- */
 const thunderImgs = {
   idle:      new Image(),
@@ -637,18 +653,18 @@ function updateBirds(dt) {
 function drawBirds() {
   if (!birdImg.complete || !birdImg.naturalWidth) return;
 
-  birdAnim  += 0.2;
-  birdFrame  = Math.floor(birdAnim) % BIRD_COLS;
+  birdAnim += 0.2;
+  birdFrame = Math.floor(birdAnim) % BIRD_COLS;
 
   for (const b of birds) {
     ctx.drawImage(
       birdImg,
-      birdFrame * BIRD_FRAME_W, 0,
+      birdFrame * BIRD_FRAME_W, 0,     // recorte dentro del sprite sheet
       BIRD_FRAME_W, BIRD_FRAME_H,
-      b.x - b.w / 2,
-      b.y - b.h / 2,
-      b.w,
-      b.h
+      b.x - BIRD_DRAW_W / 2,           // posición en pantalla
+      b.y - BIRD_DRAW_H / 2,
+      BIRD_DRAW_W,
+      BIRD_DRAW_H
     );
   }
 }
