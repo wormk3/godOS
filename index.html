@@ -765,25 +765,28 @@ function update(dt) {
   player.vy += world.gravity * dt * 60;
   player.y  += player.vy * dt * 60;
 
-  // colisión con plataformas (TODAS se rompen al usarse)
-  if (player.vy > 0) {
-    for (const p of platforms) {
-      if (p.broken) continue;
-      if (
-        player.x > p.x - 7 &&
-        player.x < p.x + p.w + 7 &&
-        player.y + player.r > p.y &&
-        player.y + player.r < p.y + p.h + player.vy * dt * 60 + 1
-      ) {
-        player.y = p.y - player.r;
-        player.vy = (p.type === PLATFORM_TYPES.BOOST)
-          ? world.baseJumpVel * 1.6
-          : world.baseJumpVel;
+  // colisión con plataformas (solo las BREAK se rompen)
+if (player.vy > 0) {
+  for (const p of platforms) {
+    if (p.broken) continue;
+    if (
+      player.x > p.x - 7 &&
+      player.x < p.x + p.w + 7 &&
+      player.y + player.r > p.y &&
+      player.y + player.r < p.y + p.h + player.vy * dt * 60 + 1
+    ) {
+      player.y = p.y - player.r;
+      player.vy = (p.type === PLATFORM_TYPES.BOOST)
+        ? world.baseJumpVel * 1.6
+        : world.baseJumpVel;
 
+      // solo rompibles las plataformas BREAK
+      if (p.type === PLATFORM_TYPES.BREAK) {
         p.broken = true;
       }
     }
   }
+}
 
   // Cámara (si quieres bajar a Thunder en la pantalla,
   // cambia el factor 0.55 por algo más alto, ej. 0.6)
