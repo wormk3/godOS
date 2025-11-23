@@ -188,7 +188,7 @@ let   coinAnim = 0, coinFrame = 0;
 
 /* --- Meteorito verde pequeño --- */
 const meteorSmallImg = new Image();
-const METEOR_SMALL_COLS = 10;
+const METEOR_SMALL_COLS = 16;
 let   METEOR_SMALL_FRAME_W = 128;
 let   METEOR_SMALL_FRAME_H = 113;
 const METEOR_SMALL_DRAW_W = 32;
@@ -197,7 +197,7 @@ let   meteorSmallAnim = 0, meteorSmallFrame = 0;
 
 /* --- Meteorito rojo grande --- */
 const meteorBigImg = new Image();
-const METEOR_BIG_COLS = 14;
+const METEOR_BIG_COLS = 16;
 let   METEOR_BIG_FRAME_W = 128;
 let   METEOR_BIG_FRAME_H = 146;
 const METEOR_BIG_DRAW_W = 40;
@@ -206,7 +206,7 @@ let   meteorBigAnim = 0, meteorBigFrame = 0;
 
 /* --- Sprite enemigo ave (enemy-bird.png) --- */
 const birdImg = new Image();
-const BIRD_COLS = 14;     // nº de frames
+const BIRD_COLS = 16;     // nº de frames
 let   BIRD_FRAME_W = 96;  // se recalcula al cargar
 let   BIRD_FRAME_H = 60;
 const BIRD_DRAW_W = 34;   // tamaño en pantalla
@@ -605,7 +605,7 @@ function drawThunder() {
 function spawnBird() {
   const x  = 30 + Math.random() * (VW - 60);
   const y  = 40;                         // debajo del HUD
-  const vy = 35 + Math.random() * 15;    // hacia abajo
+  const vy = 35 + Math.random() * 20;    // hacia abajo
 
   birds.push({
     x, y, vy,
@@ -826,18 +826,15 @@ function update(dt) {
 
   // colisiones enemigos (si no está invulnerable)
   if (player.invulnTimer <= 0) {
-   for (const b of birds) {
-  const hitW = b.w * 0.6;
-  const hitH = b.h * 0.6;
-
-  if (
-    player.x > b.x - hitW/2 &&
-    player.x < b.x + hitW/2 &&
-    player.y - player.r < b.y + hitH/2 &&
-    player.y + player.r > b.y - hitH/2
-  ) {
-    player.alive = false;
-  }
+    for (const b of birds) {
+      if (
+        player.x > b.x - b.w/2 &&
+        player.x < b.x + b.w/2 &&
+        player.y - player.r < b.y + b.h/2 &&
+        player.y + player.r > b.y - b.h/2
+      ) {
+        player.alive = false;
+      }
     }
     for (const m of meteorSmalls) {
       const dx = m.x - player.x;
@@ -860,17 +857,10 @@ function update(dt) {
   world.heightMeters = meters;
   const zoneNow = getZone(meters);
 
-if (zoneNow.key === "sky") {
-  const birdLevelMin = 1200; // no hay aves antes de 1200 m
-
-  if (meters > birdLevelMin && birds.length < 2 && Math.random() < 0.01) {
-    spawnBird();
-  }
-
-  meteorSmalls = [];
-  meteorBigs   = [];
-}
-
+  if (zoneNow.key === "sky") {
+    if (birds.length < 3 && Math.random() < 0.02) spawnBird();
+    meteorSmalls = [];
+    meteorBigs   = [];
   } else if (zoneNow.key === "solar") {
     birds = [];
     if (meteorSmalls.length < 3 && Math.random() < 0.018) spawnSmallMeteor();
