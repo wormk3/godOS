@@ -772,16 +772,24 @@ function update(dt) {
   }
 
   // cámara (bajar Thunder = subir este factor)
-  const cam = VH * 0.55;
-  if (player.y < cam) {
-    const diff = cam - player.y;
-    player.y  += diff;
-    world.scrollY += diff;
 
-    for (let p of platforms) p.y += diff;
-    for (let pu of powerUps) pu.y += diff;
-    for (let c of coinItems) c.y += diff;
-  }
+// cámara (bajar Thunder = subir este factor)
+const cam = VH * 0.55;
+if (player.y < cam) {
+  const diff = cam - player.y;
+  player.y  += diff;
+  world.scrollY += diff;
+
+  for (let p of platforms) p.y += diff;
+  for (let pu of powerUps) pu.y += diff;
+  for (let c of coinItems) c.y += diff;
+
+  // NUEVO: los enemigos se desplazan con el mundo
+  for (let b of birds)        b.y += diff;
+  for (let m of meteorSmalls) m.y += diff;
+  for (let m of meteorBigs)   m.y += diff;
+}
+
 
   // reciclado de plataformas
   platforms = platforms.filter(p => p.y < VH + 20 && !p.broken);
